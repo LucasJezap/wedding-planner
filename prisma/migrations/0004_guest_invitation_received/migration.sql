@@ -1,0 +1,2 @@
+ALTER TABLE "guests"
+ADD COLUMN IF NOT EXISTS "invitation_received" BOOLEAN NOT NULL DEFAULT false;

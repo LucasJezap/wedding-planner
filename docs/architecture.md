@@ -6,11 +6,11 @@ This document defines the **full architecture, development rules, testing standa
 
 The goal is to ensure that all code produced for this project is:
 
-* production-quality
-* clean and maintainable
-* well-tested
-* modular
-* scalable
+- production-quality
+- clean and maintainable
+- well-tested
+- modular
+- scalable
 
 All development must strictly follow the rules in this document.
 
@@ -22,11 +22,11 @@ This application is a **luxury wedding planning platform** designed to help coup
 
 Key principles:
 
-* beautiful UI
-* elegant UX
-* high reliability
-* modular architecture
-* strict testing discipline
+- beautiful UI
+- elegant UX
+- high reliability
+- modular architecture
+- strict testing discipline
 
 The system should initially support **one wedding planner couple** but be designed so that it can easily evolve into a **multi-tenant SaaS platform**.
 
@@ -44,10 +44,10 @@ The project must maintain:
 
 Measured across:
 
-* lines
-* branches
-* functions
-* statements
+- lines
+- branches
+- functions
+- statements
 
 No new feature may be merged if coverage drops below 95%.
 
@@ -65,11 +65,11 @@ before any new work continues.
 
 At all times the project must pass:
 
-* type checking
-* linting
-* unit tests
-* integration tests
-* end-to-end tests
+- type checking
+- linting
+- unit tests
+- integration tests
+- end-to-end tests
 
 No broken builds.
 
@@ -79,18 +79,18 @@ No broken builds.
 
 All code must follow:
 
-* SOLID principles
-* modular design
-* separation of concerns
-* dependency injection where needed
-* strict typing
+- SOLID principles
+- modular design
+- separation of concerns
+- dependency injection where needed
+- strict typing
 
 Avoid:
 
-* large monolithic files
-* deeply nested logic
-* duplicated code
-* hidden side effects
+- large monolithic files
+- deeply nested logic
+- duplicated code
+- hidden side effects
 
 ---
 
@@ -98,17 +98,17 @@ Avoid:
 
 Code must be:
 
-* readable
-* predictable
-* well named
-* documented where necessary
+- readable
+- predictable
+- well named
+- documented where necessary
 
 Naming rules:
 
-* variables: camelCase
-* types: PascalCase
-* files: kebab-case
-* constants: UPPER_CASE
+- variables: camelCase
+- types: PascalCase
+- files: kebab-case
+- constants: UPPER_CASE
 
 ---
 
@@ -116,12 +116,12 @@ Naming rules:
 
 ## Frontend
 
-* Next.js
-* React
-* TypeScript
-* Tailwind CSS
-* shadcn/ui
-* Framer Motion
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- Framer Motion
 
 ---
 
@@ -149,9 +149,31 @@ Auth.js (NextAuth)
 
 Authentication supports:
 
-* email login
-* password hashing
-* sessions
+- email login
+- password hashing
+- sessions
+
+Planner UX requirements:
+
+- default planner locale is Polish
+- language switch must be visible in the top navigation area
+- authenticated shell must expose a clear logout action
+- public RSVP must be open without login, but must use a guest-specific token instead of a public guest list
+- protected planner areas must support role-based access
+- witness role must not access `budget` or `import`
+- witness role must not see vendor pricing
+- witness role must not access `access`
+- witness role must see only witness-assigned tasks on Home/dashboard
+- witness role keeps guests, vendors, timeline and seating in read-only mode
+- read-only role must not access `budget`, `import` or `access`
+- read-only role can browse planner data but cannot mutate it
+- admin role manages planner accounts from `/access`
+- timeline events must support a boolean `visibleToGuests` flag used by the public site
+- tasks must support enum assignees: `GROOM`, `BRIDE`, `COUPLE`, `WITNESSES`
+- guests must support a boolean invitation-delivered flag
+- import must support Excel, CSV and TSV templates with strict header validation
+- seating planner must allow both guest drag-and-drop and table repositioning
+- seating planner table coordinates must be persisted in SQL storage
 
 ---
 
@@ -193,6 +215,11 @@ Recharts
 
 SheetJS (xlsx)
 
+Delimited formats:
+
+- CSV
+- TSV
+
 ---
 
 ## Testing
@@ -216,6 +243,14 @@ Playwright
 Docker
 
 Docker Compose
+
+Runtime requirements:
+
+- PostgreSQL data must be stored in a persistent Docker volume
+- Docker app runtime must support Prisma-backed data mode
+- real wedding planning data can be seeded from `docs/real-plan.md`
+- Prisma migrations must include the role and RSVP-token model changes used by Docker seed/runtime
+- Prisma migrations must include role/access, task assignee and public timeline visibility changes
 
 ---
 
@@ -329,9 +364,9 @@ import-service.ts
 
 Services interact with:
 
-* database
-* validation
-* transformations
+- database
+- validation
+- transformations
 
 Services must never depend on UI components.
 
@@ -343,9 +378,9 @@ API routes.
 
 Each route must:
 
-* validate input
-* call service layer
-* return structured responses
+- validate input
+- call service layer
+- return structured responses
 
 ---
 
@@ -379,9 +414,9 @@ Utility scripts.
 
 Examples:
 
-* seed database
-* test data generators
-* Excel import debugging
+- seed database
+- test data generators
+- Excel import debugging
 
 ---
 
@@ -408,9 +443,9 @@ notes
 
 Each table must include:
 
-* id
-* created_at
-* updated_at
+- id
+- created_at
+- updated_at
 
 ---
 
@@ -420,10 +455,10 @@ Each table must include:
 
 Displays:
 
-* wedding countdown
-* guest statistics
-* task completion
-* budget overview
+- wedding countdown
+- guest statistics
+- task completion
+- budget overview
 
 ---
 
@@ -431,19 +466,19 @@ Displays:
 
 Fields:
 
-* name
-* side
-* RSVP
-* dietary restrictions
-* table assignment
-* contact info
-* notes
+- name
+- side
+- RSVP
+- dietary restrictions
+- table assignment
+- contact info
+- notes
 
 Features:
 
-* search
-* filtering
-* inline editing
+- search
+- filtering
+- inline editing
 
 ---
 
@@ -461,11 +496,15 @@ dnd-kit
 
 Track:
 
-* categories
-* planned amounts
-* actual expenses
+- categories
+- category-level plan amounts
+- expense estimate ranges
+- final costs
+- payment history entries linked to expenses
 
 Include charts.
+
+The budget view must surface `Plan`, `Opłacone`, and `Pozostało` summaries and support expanding an expense to inspect installment history.
 
 ---
 
@@ -473,9 +512,9 @@ Include charts.
 
 Checklist with:
 
-* priority
-* due date
-* status
+- priority
+- due date
+- status
 
 ---
 
@@ -483,10 +522,10 @@ Checklist with:
 
 Track:
 
-* vendor category
-* contact info
-* cost
-* notes
+- vendor category
+- contact info
+- cost
+- notes
 
 ---
 
@@ -516,11 +555,11 @@ Workflow:
 
 Import process must include:
 
-* schema validation
-* column mapping
-* preview stage
-* error reporting
-* partial failure recovery
+- schema validation
+- column mapping
+- preview stage
+- error reporting
+- partial failure recovery
 
 Import logic should live in:
 
@@ -534,26 +573,26 @@ Import logic should live in:
 
 Visual design must feel:
 
-* romantic
-* elegant
-* minimal
-* luxurious
+- romantic
+- elegant
+- minimal
+- luxurious
 
 Design elements:
 
-* pastel colors
-* rounded cards
-* soft shadows
-* subtle animations
+- pastel colors
+- rounded cards
+- soft shadows
+- subtle animations
 
 Color palette example:
 
-* rose pink
-* lavender
-* peach
-* butter yellow
-* sage green
-* ivory
+- rose pink
+- lavender
+- peach
+- butter yellow
+- sage green
+- ivory
 
 ---
 
@@ -567,12 +606,12 @@ All development must follow this order.
 
 Initialize:
 
-* Next.js project
-* TypeScript
-* Tailwind
-* Prisma
-* Auth.js
-* testing frameworks
+- Next.js project
+- TypeScript
+- Tailwind
+- Prisma
+- Auth.js
+- testing frameworks
 
 Create Docker environment.
 
@@ -582,11 +621,11 @@ Create Docker environment.
 
 Implement:
 
-* database schema
-* authentication
-* base layout
-* navigation
-* user management
+- database schema
+- authentication
+- base layout
+- navigation
+- user management
 
 ---
 
@@ -608,9 +647,9 @@ Each module must include tests.
 
 Implement:
 
-* seating planner
-* dashboard charts
-* drag and drop interactions
+- seating planner
+- dashboard charts
+- drag and drop interactions
 
 ---
 
@@ -626,10 +665,10 @@ Public wedding page.
 
 Includes:
 
-* RSVP
-* schedule
-* directions
-* event details
+- RSVP
+- schedule
+- directions
+- event details
 
 ---
 
@@ -643,9 +682,9 @@ Testing must follow **test pyramid principles**.
 
 Test:
 
-* services
-* utilities
-* validation
+- services
+- utilities
+- validation
 
 Coverage target:
 
@@ -657,10 +696,10 @@ Coverage target:
 
 Test:
 
-* rendering
-* interactions
-* forms
-* UI state
+- rendering
+- interactions
+- forms
+- UI state
 
 ---
 
@@ -668,9 +707,9 @@ Test:
 
 Test:
 
-* API routes
-* database interactions
-* service logic
+- API routes
+- database interactions
+- service logic
 
 ---
 
@@ -680,11 +719,11 @@ Use Playwright.
 
 Test:
 
-* login
-* guest management
-* task workflow
-* seating planner
-* Excel import
+- login
+- guest management
+- task workflow
+- seating planner
+- Excel import
 
 ---
 
@@ -702,9 +741,9 @@ coverage check
 
 CI must reject commits if:
 
-* coverage < 95%
-* build fails
-* lint errors exist
+- coverage < 95%
+- build fails
+- lint errors exist
 
 ---
 
@@ -712,15 +751,15 @@ CI must reject commits if:
 
 Avoid:
 
-* unnecessary re-renders
-* heavy client state
-* unindexed queries
+- unnecessary re-renders
+- heavy client state
+- unindexed queries
 
 Use:
 
-* server components where possible
-* memoization
-* efficient queries
+- server components where possible
+- memoization
+- efficient queries
 
 ---
 
@@ -728,9 +767,9 @@ Use:
 
 All API routes must:
 
-* validate input
-* sanitize data
-* enforce authentication
+- validate input
+- sanitize data
+- enforce authentication
 
 Passwords must be hashed.
 
@@ -740,9 +779,9 @@ Passwords must be hashed.
 
 Major modules must include:
 
-* usage documentation
-* architecture comments
-* API contracts
+- usage documentation
+- architecture comments
+- API contracts
 
 ---
 
@@ -750,11 +789,11 @@ Major modules must include:
 
 The architecture should allow:
 
-* multiple weddings
-* multi-tenant SaaS
-* AI assistants
-* vendor marketplaces
-* guest mobile apps
+- multiple weddings
+- multi-tenant SaaS
+- AI assistants
+- vendor marketplaces
+- guest mobile apps
 
 ---
 
@@ -764,8 +803,8 @@ Quality always comes before speed.
 
 If something is:
 
-* unclear
-* fragile
-* untested
+- unclear
+- fragile
+- untested
 
 it must be improved before continuing.

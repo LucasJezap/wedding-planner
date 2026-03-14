@@ -1,0 +1,609 @@
+"use client";
+
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+
+import { useLocale } from "@/components/locale-provider";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useBudgetTotals } from "@/features/budget/hooks/use-budget-totals";
+import type {
+  BudgetCategoryInput,
+  ExpenseInput,
+  PaymentInput,
+} from "@/features/budget/types/budget";
+import type { BudgetCategoryView, ExpenseView } from "@/lib/planner-domain";
+import { apiClient } from "@/lib/api-client";
+import { formatCurrency } from "@/lib/format";
+
+const categoryPalette = [
+  "#D89BAE",
+  "#E8B4A0",
+  "#A1C6B4",
+  "#8EA6D1",
+  "#D8C28F",
+  "#B4A7D6",
+];
+
+export const BudgetManager = ({
+  initialCategories,
+  initialExpenses,
+}: {
+  initialCategories: BudgetCategoryView[];
+  initialExpenses: ExpenseView[];
+}) => {
+  const { locale, messages } = useLocale();
+  const [categories, setCategories] = useState(initialCategories);
+  const [expenses, setExpenses] = useState(initialExpenses);
+  const [selectedCategory, setSelectedCategory] =
+    useState<BudgetCategoryView | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseView | null>(
+    null,
+  );
+  const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(
+    null,
+  );
+  const totals = useBudgetTotals(categories, expenses);
+  const refreshBudget = async () => {
+    const refreshed = await apiClient<{
+      categories: BudgetCategoryView[];
+      expenses: ExpenseView[];
+    }>("/api/budget");
+    setCategories(refreshed.categories);
+    setExpenses(refreshed.expenses);
+  };
+  const {
+    register: registerCategory,
+    handleSubmit: handleCategorySubmit,
+    reset: resetCategory,
+  } = useForm<BudgetCategoryInput>({
+    defaultValues: {
+      name: "",
+      plannedAmount: 0,
+      color: categoryPalette[0],
+      notes: "",
+    },
+  });
+  const {
+    register: registerExpense,
+    handleSubmit: handleExpenseSubmit,
+    reset: resetExpense,
+  } = useForm<ExpenseInput>({
+    defaultValues: {
+      categoryId: initialCategories[0]?.id ?? "",
+      name: "",
+      estimateMin: 0,
+      estimateMax: 0,
+      actualAmount: 0,
+      notes: "",
+    },
+  });
+  const {
+    register: registerPayment,
+    handleSubmit: handlePaymentSubmit,
+    reset: resetPayment,
+  } = useForm<PaymentInput>({
+    defaultValues: {
+      expenseId: "",
+      amount: 0,
+      paidAt: new Date().toISOString().slice(0, 16),
+      notes: "",
+    },
+  });
+
+  const resetCategoryForm = () => {
+    setSelectedCategory(null);
+    resetCategory({
+      name: "",
+      plannedAmount: 0,
+      color: categoryPalette[0],
+      notes: "",
+    });
+  };
+
+  const resetExpenseForm = () => {
+    setSelectedExpense(null);
+    resetExpense({
+      categoryId: categories[0]?.id ?? "",
+      name: "",
+      estimateMin: 0,
+      estimateMax: 0,
+      actualAmount: 0,
+      notes: "",
+    });
+  };
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="space-y-6">
+        <Card className="border-white/70 bg-white/85">
+          <CardHeader>
+            <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
+              {messages.budget.totals}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-[1.5rem] bg-[var(--color-card-tint)]/75 p-5">
+              <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
+                {messages.budget.plan}
+              </p>
+              <p className="mt-2 font-display text-4xl text-[var(--color-ink)]">
+                {formatCurrency(totals.planned, locale)}
+              </p>
+            </div>
+            <div className="rounded-[1.5rem] bg-[var(--color-card-tint)]/75 p-5">
+              <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
+                {messages.budget.paid}
+              </p>
+              <p className="mt-2 font-display text-4xl text-[var(--color-ink)]">
+                {formatCurrency(totals.paid, locale)}
+              </p>
+            </div>
+            <div className="rounded-[1.5rem] bg-[var(--color-card-tint)]/75 p-5">
+              <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
+                {messages.budget.remaining}
+              </p>
+              <p className="mt-2 font-display text-4xl text-[var(--color-ink)]">
+                {formatCurrency(
+                  Math.max(totals.actual - totals.paid, 0),
+                  locale,
+                )}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-white/70 bg-white/85">
+          <CardHeader>
+            <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
+              {selectedCategory
+                ? messages.budget.editCategory
+                : messages.budget.addCategory}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="space-y-3"
+              onSubmit={handleCategorySubmit(async (values) => {
+                await apiClient<BudgetCategoryView>(
+                  selectedCategory ? "/api/budget" : "/api/budget/categories",
+                  {
+                    method: selectedCategory ? "PATCH" : "POST",
+                    body: JSON.stringify({
+                      ...values,
+                      plannedAmount: Number(values.plannedAmount),
+                      categoryId: selectedCategory?.id,
+                    }),
+                  },
+                );
+                await refreshBudget();
+                resetCategoryForm();
+              })}
+            >
+              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                <span>{messages.budget.categoryName}</span>
+                <Input {...registerCategory("name")} />
+              </label>
+              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                <span>{messages.budget.planAmount}</span>
+                <Input
+                  type="number"
+                  step="1"
+                  {...registerCategory("plannedAmount", {
+                    valueAsNumber: true,
+                  })}
+                />
+              </label>
+              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                <span>{messages.budget.categoryColor}</span>
+                <select
+                  className="h-10 w-full rounded-xl border px-3"
+                  {...registerCategory("color")}
+                >
+                  {categoryPalette.map((color) => (
+                    <option key={color} value={color}>
+                      {color}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                <span>{messages.budget.categoryNotes}</span>
+                <Input {...registerCategory("notes")} />
+              </label>
+              <div className="flex gap-3">
+                <Button className="rounded-full" type="submit">
+                  {selectedCategory
+                    ? messages.budget.saveCategory
+                    : messages.budget.createCategory}
+                </Button>
+                {selectedCategory ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetCategoryForm}
+                  >
+                    {messages.guests.cancel}
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="border-white/70 bg-white/85">
+          <CardHeader>
+            <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
+              {selectedExpense
+                ? messages.budget.editExpense
+                : messages.budget.addExpense}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="space-y-3"
+              onSubmit={handleExpenseSubmit(async (values) => {
+                await apiClient<ExpenseView>(
+                  selectedExpense
+                    ? `/api/budget/expenses/${selectedExpense.id}`
+                    : "/api/budget",
+                  {
+                    method: selectedExpense ? "PATCH" : "POST",
+                    body: JSON.stringify({
+                      ...values,
+                      estimateMin: Number(values.estimateMin),
+                      estimateMax: Number(values.estimateMax),
+                      actualAmount: Number(values.actualAmount),
+                    }),
+                  },
+                );
+                await refreshBudget();
+                resetExpenseForm();
+              })}
+            >
+              <p className="text-sm leading-6 text-[var(--color-muted-copy)]">
+                {messages.budget.expenseHelp}
+              </p>
+              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                <span>{messages.budget.expenseCategory}</span>
+                <select
+                  className="h-10 w-full rounded-xl border px-3"
+                  {...registerExpense("categoryId")}
+                >
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                <span>{messages.budget.expenseName}</span>
+                <Input {...registerExpense("name")} />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                  <span>{messages.budget.estimateMin}</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    {...registerExpense("estimateMin", { valueAsNumber: true })}
+                  />
+                </label>
+                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                  <span>{messages.budget.estimateMax}</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    {...registerExpense("estimateMax", { valueAsNumber: true })}
+                  />
+                </label>
+                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                  <span>{messages.budget.actualAmount}</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    {...registerExpense("actualAmount", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                </label>
+              </div>
+              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                <span>{messages.budget.expenseNotes}</span>
+                <Input {...registerExpense("notes")} />
+              </label>
+              <div className="flex gap-3">
+                <Button className="rounded-full" type="submit">
+                  {selectedExpense
+                    ? messages.budget.saveExpense
+                    : messages.budget.createExpense}
+                </Button>
+                {selectedExpense ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetExpenseForm}
+                  >
+                    {messages.guests.cancel}
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-6">
+        <Card className="border-white/70 bg-white/85">
+          <CardHeader>
+            <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
+              {messages.budget.categoryMix}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={categories}
+                  dataKey="paidAmount"
+                  nameKey="name"
+                  outerRadius={100}
+                >
+                  {categories.map((category) => (
+                    <Cell key={category.id} fill={category.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-4">
+          {categories.map((category) => (
+            <Card key={category.id} className="border-white/70 bg-white/85">
+              <CardContent className="flex flex-col gap-4 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-4 w-4 rounded-full"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <h3 className="font-display text-3xl text-[var(--color-ink)]">
+                        {category.name}
+                      </h3>
+                    </div>
+                    {category.notes ? (
+                      <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
+                        {category.notes}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedCategory(category);
+                      resetCategory({
+                        name: category.name,
+                        plannedAmount: category.plannedAmount,
+                        color: category.color,
+                        notes: category.notes,
+                      });
+                    }}
+                  >
+                    {messages.guests.editButton}
+                  </Button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                      {messages.budget.plan}
+                    </p>
+                    <p className="mt-2 text-lg text-[var(--color-ink)]">
+                      {formatCurrency(category.plannedAmount, locale)}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                      {messages.budget.paid}
+                    </p>
+                    <p className="mt-2 text-lg text-[var(--color-ink)]">
+                      {formatCurrency(category.paidAmount, locale)}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                      {messages.budget.remaining}
+                    </p>
+                    <p className="mt-2 text-lg text-[var(--color-ink)]">
+                      {formatCurrency(category.remainingAmount, locale)}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid gap-4">
+          {expenses.map((expense) => (
+            <Card key={expense.id} className="border-white/70 bg-white/85">
+              <CardContent className="space-y-4 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-4 w-4 rounded-full"
+                        style={{ backgroundColor: expense.categoryColor }}
+                      />
+                      <h3 className="font-display text-3xl text-[var(--color-ink)]">
+                        {expense.name}
+                      </h3>
+                    </div>
+                    <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
+                      {expense.categoryName}
+                    </p>
+                    {expense.notes ? (
+                      <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
+                        {expense.notes}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedExpense(expense);
+                        resetExpense({
+                          categoryId: expense.categoryId,
+                          name: expense.name,
+                          estimateMin: expense.estimateMin,
+                          estimateMax: expense.estimateMax,
+                          actualAmount: expense.actualAmount,
+                          notes: expense.notes,
+                        });
+                      }}
+                    >
+                      {messages.guests.editButton}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        if (!window.confirm(messages.common.confirmDelete)) {
+                          return;
+                        }
+                        await apiClient<{ expenseId: string }>(
+                          `/api/budget/expenses/${expense.id}`,
+                          {
+                            method: "DELETE",
+                          },
+                        );
+                        await refreshBudget();
+                      }}
+                    >
+                      {messages.guests.delete}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                      {messages.budget.plan}
+                    </p>
+                    <p className="mt-2 text-lg text-[var(--color-ink)]">
+                      {formatCurrency(expense.actualAmount, locale)}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                      {messages.budget.paid}
+                    </p>
+                    <p className="mt-2 text-lg text-[var(--color-ink)]">
+                      {formatCurrency(expense.paidAmount, locale)}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                      {messages.budget.remaining}
+                    </p>
+                    <p className="mt-2 text-lg text-[var(--color-ink)]">
+                      {formatCurrency(expense.remainingAmount, locale)}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-[var(--color-muted-copy)]">
+                  {messages.budget.rangeLabel(
+                    formatCurrency(expense.estimateMin, locale),
+                    formatCurrency(expense.estimateMax, locale),
+                  )}
+                </p>
+
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setExpandedExpenseId((current) =>
+                      current === expense.id ? null : expense.id,
+                    )
+                  }
+                >
+                  {messages.budget.showMore}
+                </Button>
+
+                {expandedExpenseId === expense.id ? (
+                  <div className="space-y-4 rounded-[1.5rem] bg-[var(--color-card-tint)]/35 p-4">
+                    <div className="space-y-2">
+                      {expense.payments.map((payment) => (
+                        <div
+                          key={payment.id}
+                          className="rounded-[1.25rem] border border-white/70 bg-white/80 p-3"
+                        >
+                          <p className="text-sm font-medium text-[var(--color-ink)]">
+                            {formatCurrency(payment.amount, locale)}
+                          </p>
+                          <p className="text-xs text-[var(--color-muted-copy)]">
+                            {new Date(payment.paidAt).toLocaleString(locale)}
+                          </p>
+                          {payment.notes ? (
+                            <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
+                              {payment.notes}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                    <form
+                      className="grid gap-3 sm:grid-cols-[1fr_1fr_1.2fr_auto]"
+                      onSubmit={handlePaymentSubmit(async (values) => {
+                        await apiClient<ExpenseView>(
+                          `/api/budget/expenses/${expense.id}/payments`,
+                          {
+                            method: "POST",
+                            body: JSON.stringify({
+                              amount: Number(values.amount),
+                              paidAt: values.paidAt,
+                              notes: values.notes,
+                            }),
+                          },
+                        );
+                        await refreshBudget();
+                        resetPayment({
+                          expenseId: expense.id,
+                          amount: 0,
+                          paidAt: new Date().toISOString().slice(0, 16),
+                          notes: "",
+                        });
+                      })}
+                    >
+                      <Input
+                        type="number"
+                        step="1"
+                        placeholder={messages.budget.paymentAmount}
+                        {...registerPayment("amount", { valueAsNumber: true })}
+                      />
+                      <Input
+                        type="datetime-local"
+                        {...registerPayment("paidAt")}
+                      />
+                      <Input
+                        placeholder={messages.budget.paymentNotes}
+                        {...registerPayment("notes")}
+                      />
+                      <Button className="rounded-full" type="submit">
+                        {messages.budget.addPayment}
+                      </Button>
+                    </form>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};

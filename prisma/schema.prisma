@@ -1,0 +1,341 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GuestSide {
+  BRIDE
+  GROOM
+  FAMILY
+  FRIENDS
+}
+
+enum UserRole {
+  ADMIN
+  WITNESS
+  READ_ONLY
+}
+
+enum RsvpStatus {
+  PENDING
+  ATTENDING
+  DECLINED
+}
+
+enum PaymentCoverage {
+  FULL
+  HALF
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskAssignee {
+  GROOM
+  BRIDE
+  COUPLE
+  WITNESSES
+}
+
+enum VendorCategoryType {
+  VENUE
+  CATERING
+  MUSIC
+  PHOTO
+  FLORAL
+  WEDDING_PLANNER
+  CONTENT_CREATOR
+  MAKEUP
+  HAIR
+  PRIEST
+  ATTIRE
+  TRANSPORT
+  OTHER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  weddingId    String
+  email        String   @unique
+  name         String
+  role         UserRole @default(ADMIN)
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  wedding      Wedding  @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@map("users")
+}
+
+model UserInvitation {
+  id         String   @id @default(cuid())
+  weddingId  String   @map("wedding_id")
+  email      String
+  role       UserRole @default(WITNESS)
+  token      String   @unique
+  acceptedAt DateTime? @map("accepted_at")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  wedding    Wedding  @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@unique([weddingId, email])
+  @@map("user_invitations")
+}
+
+model Wedding {
+  id              String           @id @default(cuid())
+  slug            String           @unique
+  title           String
+  coupleOneName   String           @map("couple_one_name")
+  coupleTwoName   String           @map("couple_two_name")
+  venueName       String           @map("venue_name")
+  venueAddress    String           @map("venue_address")
+  ceremonyDate    DateTime         @map("ceremony_date")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  users           User[]
+  userInvitations UserInvitation[]
+  guests          Guest[]
+  weddingTables   WeddingTable[]
+  seats           Seat[]
+  vendors         Vendor[]
+  vendorCategories VendorCategory[]
+  budgetCategories BudgetCategory[]
+  expenses        Expense[]
+  payments        Payment[]
+  tasks           Task[]
+  timelineEvents  TimelineEvent[]
+  contacts        Contact[]
+  rsvps           Rsvp[]
+  notes           Note[]
+
+  @@map("weddings")
+}
+
+model Guest {
+  id                  String        @id @default(cuid())
+  weddingId           String        @map("wedding_id")
+  firstName           String        @map("first_name")
+  lastName            String        @map("last_name")
+  side                GuestSide
+  rsvpStatus          RsvpStatus    @default(PENDING) @map("rsvp_status")
+  rsvpToken           String        @unique @map("rsvp_token")
+  dietaryRestrictions String[]      @default([])
+  paymentCoverage     PaymentCoverage @default(FULL) @map("payment_coverage")
+  invitationReceived  Boolean       @default(false) @map("invitation_received")
+  transportToVenue    Boolean       @default(false) @map("transport_to_venue")
+  transportFromVenue  Boolean       @default(false) @map("transport_from_venue")
+  tableId             String?       @map("table_id")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  wedding             Wedding       @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  weddingTable        WeddingTable? @relation(fields: [tableId], references: [id])
+  seat                Seat?
+  contact             Contact?
+  note                Note?
+  rsvp                Rsvp?
+
+  @@map("guests")
+}
+
+model WeddingTable {
+  id         String   @id @default(cuid())
+  weddingId  String   @map("wedding_id")
+  name       String
+  capacity   Int
+  positionX  Int      @default(0) @map("position_x")
+  positionY  Int      @default(0) @map("position_y")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  wedding    Wedding  @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  guests     Guest[]
+  seats      Seat[]
+
+  @@map("tables")
+}
+
+model Seat {
+  id         String        @id @default(cuid())
+  weddingId  String        @map("wedding_id")
+  tableId    String        @map("table_id")
+  guestId    String?       @unique @map("guest_id")
+  label      String
+  position   Int
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  wedding    Wedding       @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  weddingTable WeddingTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  guest      Guest?        @relation(fields: [guestId], references: [id])
+
+  @@map("seats")
+}
+
+model VendorCategory {
+  id        String             @id @default(cuid())
+  weddingId String             @map("wedding_id")
+  name      String
+  type      VendorCategoryType
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+  wedding   Wedding            @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  vendors   Vendor[]
+
+  @@map("vendor_categories")
+}
+
+model Vendor {
+  id               String         @id @default(cuid())
+  weddingId        String         @map("wedding_id")
+  categoryId       String         @map("category_id")
+  name             String
+  cost             Decimal        @db.Decimal(10, 2)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  wedding          Wedding        @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  category         VendorCategory @relation(fields: [categoryId], references: [id])
+  contact          Contact?
+  note             Note?
+
+  @@map("vendors")
+}
+
+model BudgetCategory {
+  id            String    @id @default(cuid())
+  weddingId     String    @map("wedding_id")
+  name          String
+  plannedAmount Decimal   @db.Decimal(10, 2) @map("planned_amount")
+  color         String    @default("#D89BAE")
+  notes         String    @default("")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  wedding       Wedding   @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  expenses      Expense[]
+
+  @@map("budget_categories")
+}
+
+model Expense {
+  id          String         @id @default(cuid())
+  weddingId   String         @map("wedding_id")
+  categoryId  String         @map("category_id")
+  name        String
+  estimateMin Decimal        @db.Decimal(10, 2) @map("estimate_min")
+  estimateMax Decimal        @db.Decimal(10, 2) @map("estimate_max")
+  actualAmount Decimal       @db.Decimal(10, 2) @map("actual_amount")
+  notes       String         @default("")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  wedding     Wedding        @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  category    BudgetCategory @relation(fields: [categoryId], references: [id])
+  payments    Payment[]
+
+  @@map("expenses")
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  weddingId String   @map("wedding_id")
+  expenseId String   @map("expense_id")
+  amount    Decimal  @db.Decimal(10, 2)
+  paidAt    DateTime @map("paid_at")
+  notes     String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  wedding   Wedding  @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  weddingId   String       @map("wedding_id")
+  title       String
+  description String
+  dueDate     DateTime     @map("due_date")
+  priority    TaskPriority
+  status      TaskStatus
+  assignee    TaskAssignee @default(COUPLE)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  wedding     Wedding      @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  note        Note?
+
+  @@map("tasks")
+}
+
+model TimelineEvent {
+  id          String   @id @default(cuid())
+  weddingId   String   @map("wedding_id")
+  title       String
+  description String
+  startsAt    DateTime @map("starts_at")
+  location    String
+  visibleToGuests Boolean @default(true) @map("visible_to_guests")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  wedding     Wedding  @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@map("timeline_events")
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  weddingId  String   @map("wedding_id")
+  guestId    String?  @unique @map("guest_id")
+  vendorId   String?  @unique @map("vendor_id")
+  email      String
+  phone      String
+  guest      Guest?   @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  vendor     Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  wedding    Wedding  @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("contacts")
+}
+
+model Rsvp {
+  id         String     @id @default(cuid())
+  weddingId  String     @map("wedding_id")
+  guestId    String     @unique @map("guest_id")
+  status     RsvpStatus
+  guestCount Int        @default(1) @map("guest_count")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+  wedding    Wedding    @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  guest      Guest      @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@map("rsvps")
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  weddingId  String   @map("wedding_id")
+  guestId    String?  @unique @map("guest_id")
+  vendorId   String?  @unique @map("vendor_id")
+  taskId     String?  @unique @map("task_id")
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  wedding    Wedding  @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  guest      Guest?   @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  vendor     Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}

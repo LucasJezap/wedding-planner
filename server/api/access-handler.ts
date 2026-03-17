@@ -17,9 +17,15 @@ export const getAccountsHandler = async () => listAccounts();
 export const getAccountInvitationsHandler = async () =>
   listAccountInvitations();
 
-export const createAccountHandler = async (input: AccountInput) => {
+export const createAccountHandler = async (
+  input: AccountInput & { activationOrigin: string },
+) => {
   const wedding = await getRepository().getWedding();
-  return createAccountInvitation({ ...input, weddingId: wedding.id });
+  return createAccountInvitation({
+    ...input,
+    weddingId: wedding.id,
+    coupleNames: `${wedding.coupleOneName} & ${wedding.coupleTwoName}`,
+  });
 };
 
 export const updateAccountRoleHandler = async (

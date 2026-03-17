@@ -4,6 +4,8 @@ import { compare, hash } from "bcryptjs";
 import { getRepository } from "@/db/repositories";
 import type { UserRole } from "@/lib/planner-domain";
 import { accountActivationSchema } from "@/features/access/types/access";
+import { sendAccountInvitationEmail } from "@/services/email-service";
+import { getActivationUrl } from "@/lib/invitation";
 
 export const authenticateUser = async (
   email: string,
@@ -42,7 +44,9 @@ export const listAccounts = async () => {
 
 export const listAccountInvitations = async () => {
   const repository = getRepository();
-  return repository.listUserInvitations();
+  return (await repository.listUserInvitations()).filter(
+    (invitation) => !invitation.acceptedAt,
+  );
 };
 
 const buildInvitationToken = (email: string, role: UserRole) =>
@@ -52,6 +56,8 @@ export const createAccountInvitation = async (input: {
   weddingId: string;
   email: string;
   role: UserRole;
+  activationOrigin: string;
+  coupleNames: string;
 }) => {
   const repository = getRepository();
   const existingUser = await repository.getUserByEmail(input.email);
@@ -59,7 +65,7 @@ export const createAccountInvitation = async (input: {
     throw new Error("Account already exists");
   }
 
-  return repository.createUserInvitation({
+  const invitation = await repository.createUserInvitation({
     weddingId: input.weddingId,
     email: input.email,
     role: input.role,
@@ -67,6 +73,16 @@ export const createAccountInvitation = async (input: {
     expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
     acceptedAt: undefined,
   });
+
+  await sendAccountInvitationEmail({
+    email: invitation.email,
+    role: invitation.role,
+    activationUrl: getActivationUrl(input.activationOrigin, invitation.token),
+    coupleNames: input.coupleNames,
+    expiresAt: invitation.expiresAt,
+  });
+
+  return invitation;
 };
 
 export const updateAccountRole = async (userId: string, role: UserRole) => {

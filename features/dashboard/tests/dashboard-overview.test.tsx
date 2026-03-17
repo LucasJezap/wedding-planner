@@ -34,4 +34,14 @@ describe("DashboardOverview", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Wszystkie wydatki")).not.toBeInTheDocument();
   });
+
+  it("hides dashboard task modules for read-only view", async () => {
+    render(
+      <DashboardOverview
+        data={await getDashboardData({ viewerRole: "READ_ONLY" })}
+      />,
+    );
+
+    expect(screen.queryByText("Najbliższe zadania")).not.toBeInTheDocument();
+  });
 });

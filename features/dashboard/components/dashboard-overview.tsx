@@ -22,7 +22,11 @@ import {
 import { useLocale } from "@/components/locale-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SummaryCard } from "@/components/summary-card";
-import { canAccessSection, type PlannerSection } from "@/lib/access-control";
+import {
+  canAccessSection,
+  canViewDashboardTasks,
+  type PlannerSection,
+} from "@/lib/access-control";
 import { formatCurrency, formatDate, formatTime } from "@/lib/format";
 import type { DashboardData } from "@/lib/planner-domain";
 
@@ -30,6 +34,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
   const { locale, messages } = useLocale();
   const coupleNames = `${data.wedding.coupleOneName} & ${data.wedding.coupleTwoName}`;
   const canSeeBudget = data.viewerRole === "ADMIN" || !data.viewerRole;
+  const canSeeTasks = canViewDashboardTasks(data.viewerRole ?? "ADMIN");
   const dashboardLinks = [
     {
       href: "/guests",
@@ -142,16 +147,20 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                 },
               ]
             : []),
-        ].map((card, index) => (
-          <motion.div
-            key={card.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.08 }}
-          >
-            <SummaryCard {...card} />
-          </motion.div>
-        ))}
+        ]
+          .filter(
+            (card) => canSeeTasks || card.label !== messages.dashboard.tasks,
+          )
+          .map((card, index) => (
+            <motion.div
+              key={card.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.08 }}
+            >
+              <SummaryCard {...card} />
+            </motion.div>
+          ))}
       </div>
       <div
         className={`grid gap-6 ${canSeeBudget ? "lg:grid-cols-[1.2fr_0.8fr]" : "lg:grid-cols-1"}`}
@@ -242,42 +251,46 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
         </Card>
       </div>
       <div
-        className={`grid gap-6 ${canSeeBudget ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}
+        className={`grid gap-6 ${
+          canSeeBudget && canSeeTasks ? "lg:grid-cols-2" : "lg:grid-cols-1"
+        }`}
       >
-        <Card className="border-white/70 bg-white/85 shadow-[0_18px_60px_rgba(160,96,120,0.12)]">
-          <CardHeader>
-            <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
-              {messages.dashboard.upcomingTasks}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {data.upcomingTasks.map((task) => (
-              <div
-                key={task.id}
-                className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-display text-2xl text-[var(--color-ink)]">
-                    {task.title}
-                  </h3>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                    {messages.enums.taskPriority[task.priority]}
-                  </span>
+        {canSeeTasks ? (
+          <Card className="border-white/70 bg-white/85 shadow-[0_18px_60px_rgba(160,96,120,0.12)]">
+            <CardHeader>
+              <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
+                {messages.dashboard.upcomingTasks}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {data.upcomingTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-display text-2xl text-[var(--color-ink)]">
+                      {task.title}
+                    </h3>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                      {messages.enums.taskPriority[task.priority]}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
+                    {formatDate(task.dueDate, locale)}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
+                    {messages.tasks.assignee}:{" "}
+                    {messages.enums.taskAssignee[task.assignee]}
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
+                    {task.notes || messages.dashboard.noTaskNotes}
+                  </p>
                 </div>
-                <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
-                  {formatDate(task.dueDate, locale)}
-                </p>
-                <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
-                  {messages.tasks.assignee}:{" "}
-                  {messages.enums.taskAssignee[task.assignee]}
-                </p>
-                <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
-                  {task.notes || messages.dashboard.noTaskNotes}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
         {canSeeBudget ? (
           <Card className="border-white/70 bg-white/85 shadow-[0_18px_60px_rgba(160,96,120,0.12)]">
             <CardHeader>

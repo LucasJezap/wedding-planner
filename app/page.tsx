@@ -7,7 +7,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Card, CardContent } from "@/components/ui/card";
 import { authOptions } from "@/lib/auth";
 import { getRequestMessages } from "@/lib/i18n-server";
-import { DEMO_CREDENTIALS } from "@/lib/planner-seed";
+import { DEMO_CREDENTIALS, WITNESS_DEMO_CREDENTIALS } from "@/lib/planner-seed";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -119,13 +119,13 @@ export default async function Home() {
                     {messages.home.witnessAccount}
                   </p>
                   <p className="mt-1 text-lg text-[var(--color-ink)]">
-                    swiadek@gmail.com
+                    {WITNESS_DEMO_CREDENTIALS.email}
                   </p>
                   <p className="mt-4 text-sm text-[var(--color-muted-copy)]">
                     {messages.home.password}
                   </p>
                   <p className="mt-1 text-lg text-[var(--color-ink)]">
-                    Avatar3232!
+                    {WITNESS_DEMO_CREDENTIALS.password}
                   </p>
                 </div>
               </div>

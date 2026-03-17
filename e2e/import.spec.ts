@@ -5,17 +5,18 @@ test("planner can upload a guest workbook", async ({ page }) => {
   const workbook = XLSX.utils.book_new();
   const sheet = XLSX.utils.json_to_sheet([
     {
-      FirstName: "Playwright",
-      LastName: "Import",
-      Side: "FRIENDS",
+      Imię: "Playwright",
+      Nazwisko: "Import",
+      Strona: "Przyjaciele",
       Email: "import@example.com",
-      Phone: "123456",
-      DietaryRestrictions: "",
-      Notes: "Imported by e2e",
-      InvitationReceived: "true",
-      PaymentCoverage: "FULL",
-      TransportToVenue: "false",
-      TransportFromVenue: "false",
+      Telefon: "123456",
+      Dieta: "Brak",
+      Notatki: "Imported by e2e",
+      RSVP: "Oczekuje",
+      "Zaproszenie doręczone": "☑",
+      Płatność: "100%",
+      "Transport na salę": "☐",
+      "Transport powrotny": "☐",
     },
   ]);
   XLSX.utils.book_append_sheet(workbook, sheet, "Guests");

@@ -7,15 +7,107 @@ import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { mapPreviewRows } from "@/features/import/hooks/use-import-preview";
 import {
   hasValidImportHeaders,
+  IMPORT_FIELD_ALIASES,
   IMPORT_TEMPLATE_HEADERS,
+  isBlankImportRow,
 } from "@/features/import/types/import";
-import { mapPreviewRows } from "@/features/import/hooks/use-import-preview";
-import type { GuestView } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
+import type { GuestView } from "@/lib/planner-domain";
 
 type PreviewRow = Record<string, string>;
+
+const TEMPLATE_ROW_COUNT = 200;
+
+const templateColumnWidths = [
+  { wch: 16 },
+  { wch: 18 },
+  { wch: 18 },
+  { wch: 28 },
+  { wch: 18 },
+  { wch: 14 },
+  { wch: 34 },
+  { wch: 16 },
+  { wch: 18 },
+  { wch: 12 },
+  { wch: 16 },
+  { wch: 18 },
+];
+
+const templateLegendRows = [
+  ["Kolumna", "Dozwolone wartości"],
+  ["Strona", "Panna Młoda, Pan Młody, Rodzina, Przyjaciele"],
+  ["Dieta", "Brak, Wege, Wegan"],
+  ["RSVP", "Oczekuje, Potwierdzono, Odmowa"],
+  ["Płatność", "100%, 50%"],
+  ["Pola typu checkbox", "☑ = Tak, ☐ = Nie"],
+];
+
+const mappingEntries = Object.entries(IMPORT_FIELD_ALIASES) as Array<
+  [keyof typeof IMPORT_FIELD_ALIASES, readonly string[]]
+>;
+
+const buildPreviewRows = (
+  headers: string[],
+  dataRows: string[][],
+): PreviewRow[] =>
+  dataRows
+    .map((values) =>
+      Object.fromEntries(
+        headers.map((header, index) => [header, values[index] ?? ""]),
+      ),
+    )
+    .filter((row) => !isBlankImportRow(row));
+
+const buildDefaultMapping = (headers: string[]) =>
+  Object.fromEntries(
+    mappingEntries.map(([key, aliases]) => [
+      key,
+      aliases.find((alias) => headers.includes(alias)) ?? aliases[0],
+    ]),
+  ) as Record<string, string>;
+
+const downloadBlob = (content: BlobPart, filename: string, type: string) => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const buildDelimitedTemplate = (separator: "," | "\t") => {
+  const rows = Array.from({ length: TEMPLATE_ROW_COUNT }, () =>
+    IMPORT_TEMPLATE_HEADERS.map(() => ""),
+  );
+  return [
+    IMPORT_TEMPLATE_HEADERS.join(separator),
+    ...rows.map((row) => row.join(separator)),
+  ].join("\n");
+};
+
+const buildWorkbookBuffer = (bookType: "xlsx" | "xls") => {
+  const workbook = XLSX.utils.book_new();
+  const guestRows = [
+    [...IMPORT_TEMPLATE_HEADERS],
+    ...Array.from({ length: TEMPLATE_ROW_COUNT }, () =>
+      IMPORT_TEMPLATE_HEADERS.map(() => ""),
+    ),
+  ];
+  const guestSheet = XLSX.utils.aoa_to_sheet(guestRows);
+  guestSheet["!cols"] = templateColumnWidths;
+
+  const legendSheet = XLSX.utils.aoa_to_sheet(templateLegendRows);
+  legendSheet["!cols"] = [{ wch: 24 }, { wch: 48 }];
+
+  XLSX.utils.book_append_sheet(workbook, guestSheet, "Goście");
+  XLSX.utils.book_append_sheet(workbook, legendSheet, "Legenda");
+
+  return XLSX.write(workbook, { bookType, type: "array" });
+};
 
 export const ImportWizard = ({
   onImported,
@@ -33,41 +125,21 @@ export const ImportWizard = ({
   const [error, setError] = useState("");
   const headers = Object.keys(rows[0] ?? {});
 
-  const buildDefaultMapping = (sheetRows: PreviewRow[]) => {
-    const sheetHeaders = Object.keys(sheetRows[0] ?? {});
-    return {
-      firstName: sheetHeaders[0] ?? messages.import.fields.firstName,
-      lastName: sheetHeaders[1] ?? messages.import.fields.lastName,
-      side: sheetHeaders[2] ?? messages.import.fields.side,
-      email: sheetHeaders[3] ?? messages.import.fields.email,
-      phone: sheetHeaders[4] ?? messages.import.fields.phone,
-      dietaryRestrictions:
-        sheetHeaders[5] ?? messages.import.fields.dietaryRestrictions,
-      notes: sheetHeaders[6] ?? messages.import.fields.notes,
-      invitationReceived: sheetHeaders[7] ?? "InvitationReceived",
-      paymentCoverage: sheetHeaders[8] ?? "PaymentCoverage",
-      transportToVenue: sheetHeaders[9] ?? "TransportToVenue",
-      transportFromVenue: sheetHeaders[10] ?? "TransportFromVenue",
-    };
-  };
-
   const handleFile = async (file: File) => {
     const extension = file.name.split(".").pop()?.toLowerCase();
+
     const parseDelimitedRows = async (separator: "," | "\t") => {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(Boolean);
+      const lines = (await file.text()).split(/\r?\n/);
       const parsedHeaders = (lines[0] ?? "")
         .split(separator)
         .map((value) => value.trim());
       if (!hasValidImportHeaders(parsedHeaders)) {
         throw new Error("Struktura pliku jest nieprawidłowa");
       }
-      return lines.slice(1).map((line) => {
-        const values = line.split(separator);
-        return Object.fromEntries(
-          parsedHeaders.map((header, index) => [header, values[index] ?? ""]),
-        );
-      });
+      return buildPreviewRows(
+        parsedHeaders,
+        lines.slice(1).map((line) => line.split(separator)),
+      );
     };
 
     try {
@@ -78,27 +150,30 @@ export const ImportWizard = ({
         parsedWorkbookRows = { CSV: await parseDelimitedRows(",") };
       } else if (extension === "tsv") {
         parsedWorkbookRows = { TSV: await parseDelimitedRows("\t") };
-      }
-
-      if (extension !== "csv" && extension !== "tsv") {
+      } else {
         const buffer = await file.arrayBuffer();
         const workbook = XLSX.read(buffer, { type: "array" });
-        const workbookEntries = Object.fromEntries(
+        parsedWorkbookRows = Object.fromEntries(
           workbook.SheetNames.map((sheetName) => {
-            const sheetRows = XLSX.utils.sheet_to_json<PreviewRow>(
+            const matrix = XLSX.utils.sheet_to_json<string[]>(
               workbook.Sheets[sheetName]!,
               {
+                header: 1,
                 defval: "",
               },
             );
-            const sheetHeaders = Object.keys(sheetRows[0] ?? {});
+            const sheetHeaders = (matrix[0] ?? []).map((value) =>
+              String(value).trim(),
+            );
             if (!hasValidImportHeaders(sheetHeaders)) {
-              throw new Error("Struktura pliku jest nieprawidłowa");
+              return null;
             }
-            return [sheetName, sheetRows];
-          }),
+            return [sheetName, buildPreviewRows(sheetHeaders, matrix.slice(1))];
+          }).filter((entry): entry is [string, PreviewRow[]] => Boolean(entry)),
         );
-        parsedWorkbookRows = workbookEntries;
+        if (!Object.keys(parsedWorkbookRows).length) {
+          throw new Error("Struktura pliku jest nieprawidłowa");
+        }
       }
 
       const availableSheets = Object.keys(parsedWorkbookRows);
@@ -109,7 +184,7 @@ export const ImportWizard = ({
       setSheetNames(availableSheets);
       setSelectedSheet(firstSheet);
       setRows(sheetRows);
-      setMapping(buildDefaultMapping(sheetRows));
+      setMapping(buildDefaultMapping(Object.keys(sheetRows[0] ?? {})));
     } catch (cause) {
       setWorkbookRows({});
       setSheetNames([]);
@@ -132,10 +207,11 @@ export const ImportWizard = ({
     ["phone", messages.import.fields.phone],
     ["dietaryRestrictions", messages.import.fields.dietaryRestrictions],
     ["notes", messages.import.fields.notes],
-    ["invitationReceived", "InvitationReceived"],
-    ["paymentCoverage", "PaymentCoverage"],
-    ["transportToVenue", "TransportToVenue"],
-    ["transportFromVenue", "TransportFromVenue"],
+    ["rsvpStatus", messages.guests.rsvp],
+    ["invitationReceived", messages.guests.invitationReceived],
+    ["paymentCoverage", messages.guests.payment],
+    ["transportToVenue", messages.guests.transportTo],
+    ["transportFromVenue", messages.guests.transportFrom],
   ] as const;
 
   return (
@@ -158,12 +234,14 @@ export const ImportWizard = ({
               {messages.import.sampleColumns}
             </p>
             <p className="mt-2 text-sm">
-              `FirstName`, `LastName`, `Side`, `Email`, `Phone`,
-              `DietaryRestrictions`, `Notes`
+              {IMPORT_TEMPLATE_HEADERS.map((header) => `\`${header}\``).join(
+                ", ",
+              )}
             </p>
           </div>
         </CardContent>
       </Card>
+
       <Card className="border-white/70 bg-white/85">
         <CardHeader>
           <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
@@ -176,18 +254,41 @@ export const ImportWizard = ({
               type="button"
               variant="outline"
               className="rounded-full"
-              onClick={() => {
-                const content = `${IMPORT_TEMPLATE_HEADERS.join(",")}\n`;
-                const blob = new Blob([content], {
-                  type: "text/csv;charset=utf-8",
-                });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = "wedding-guests-template.csv";
-                link.click();
-                URL.revokeObjectURL(url);
-              }}
+              onClick={() =>
+                downloadBlob(
+                  buildWorkbookBuffer("xlsx"),
+                  "szablon-goscie.xlsx",
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+              }
+            >
+              XLSX
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full"
+              onClick={() =>
+                downloadBlob(
+                  buildWorkbookBuffer("xls"),
+                  "szablon-goscie.xls",
+                  "application/vnd.ms-excel",
+                )
+              }
+            >
+              XLS
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full"
+              onClick={() =>
+                downloadBlob(
+                  buildDelimitedTemplate(","),
+                  "szablon-goscie.csv",
+                  "text/csv;charset=utf-8",
+                )
+              }
             >
               CSV
             </Button>
@@ -195,22 +296,18 @@ export const ImportWizard = ({
               type="button"
               variant="outline"
               className="rounded-full"
-              onClick={() => {
-                const content = `${IMPORT_TEMPLATE_HEADERS.join("\t")}\n`;
-                const blob = new Blob([content], {
-                  type: "text/tab-separated-values;charset=utf-8",
-                });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = "wedding-guests-template.tsv";
-                link.click();
-                URL.revokeObjectURL(url);
-              }}
+              onClick={() =>
+                downloadBlob(
+                  buildDelimitedTemplate("\t"),
+                  "szablon-goscie.tsv",
+                  "text/tab-separated-values;charset=utf-8",
+                )
+              }
             >
               TSV
             </Button>
           </div>
+
           <Input
             type="file"
             accept=".xlsx,.xls,.csv,.tsv"
@@ -221,7 +318,9 @@ export const ImportWizard = ({
               }
             }}
           />
+
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
           {sheetNames.length ? (
             <select
               className="h-10 rounded-xl border px-3"
@@ -231,7 +330,7 @@ export const ImportWizard = ({
                 const nextRows = workbookRows[nextSheet] ?? [];
                 setSelectedSheet(nextSheet);
                 setRows(nextRows);
-                setMapping(buildDefaultMapping(nextRows));
+                setMapping(buildDefaultMapping(Object.keys(nextRows[0] ?? {})));
               }}
             >
               {sheetNames.map((sheetName) => (
@@ -243,6 +342,7 @@ export const ImportWizard = ({
           ) : null}
         </CardContent>
       </Card>
+
       {rows.length ? (
         <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
           <Card className="border-white/70 bg-white/85">
@@ -291,6 +391,7 @@ export const ImportWizard = ({
               </Button>
             </CardContent>
           </Card>
+
           <Card className="border-white/70 bg-white/85">
             <CardHeader>
               <CardTitle className="font-display text-3xl text-[var(--color-ink)]">

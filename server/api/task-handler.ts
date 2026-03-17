@@ -7,7 +7,8 @@ import {
   updateTask,
 } from "@/services/task-service";
 
-export const getTasksHandler = async () => listTasks();
+export const getTasksHandler = async (viewerRole?: UserRole) =>
+  listTasks({ viewerRole });
 export const createTaskHandler = async (
   input: TaskInput,
   viewerRole?: UserRole,

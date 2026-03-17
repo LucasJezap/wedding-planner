@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,35 @@ const categoryPalette = [
   "#8EA6D1",
   "#D8C28F",
   "#B4A7D6",
+  "#D97C6C",
+  "#E59F71",
+  "#E8B95B",
+  "#B7C971",
+  "#79B98E",
+  "#58B2A5",
+  "#5FA5C4",
+  "#7393D6",
+  "#8E85D9",
+  "#AD7AD3",
+  "#C971B6",
+  "#D46D98",
+  "#B95D73",
+  "#C48761",
+  "#B69674",
+  "#8B9A63",
+  "#6FA075",
+  "#4D9A89",
+  "#4C8696",
+  "#6279A5",
+  "#8572B5",
+  "#9E6EAE",
+  "#B66B9D",
+  "#C56F82",
+  "#D28D74",
+  "#B8A56B",
+  "#8DA66A",
+  "#72A58F",
+  "#7E8FB4",
 ];
 
 export const BudgetManager = ({
@@ -42,6 +71,9 @@ export const BudgetManager = ({
   const [selectedExpense, setSelectedExpense] = useState<ExpenseView | null>(
     null,
   );
+  const [selectedCategoryColor, setSelectedCategoryColor] = useState(
+    categoryPalette[0],
+  );
   const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(
     null,
   );
@@ -58,6 +90,7 @@ export const BudgetManager = ({
     register: registerCategory,
     handleSubmit: handleCategorySubmit,
     reset: resetCategory,
+    setValue: setCategoryValue,
   } = useForm<BudgetCategoryInput>({
     defaultValues: {
       name: "",
@@ -95,6 +128,7 @@ export const BudgetManager = ({
 
   const resetCategoryForm = () => {
     setSelectedCategory(null);
+    setSelectedCategoryColor(categoryPalette[0]);
     resetCategory({
       name: "",
       plannedAmount: 0,
@@ -198,16 +232,55 @@ export const BudgetManager = ({
               </label>
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.categoryColor}</span>
-                <select
-                  className="h-10 w-full rounded-xl border px-3"
-                  {...registerCategory("color")}
-                >
-                  {categoryPalette.map((color) => (
-                    <option key={color} value={color}>
-                      {color}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-3 rounded-[1.25rem] border border-[var(--color-card-tint)]/80 p-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      aria-label={messages.budget.categoryColor}
+                      className="h-11 w-16 cursor-pointer rounded-lg border border-[var(--color-card-tint)] bg-white p-1"
+                      value={selectedCategoryColor}
+                      onChange={(event) => {
+                        setSelectedCategoryColor(event.target.value);
+                        setCategoryValue("color", event.target.value, {
+                          shouldDirty: true,
+                        });
+                      }}
+                    />
+                    <Input
+                      {...registerCategory("color")}
+                      className="font-mono"
+                      value={selectedCategoryColor}
+                      onChange={(event) => {
+                        setSelectedCategoryColor(event.target.value);
+                        setCategoryValue("color", event.target.value, {
+                          shouldDirty: true,
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-6 gap-2">
+                    {categoryPalette.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        title={color}
+                        aria-label={`${messages.budget.categoryColor}: ${color}`}
+                        className={`h-9 rounded-xl border transition-transform hover:scale-[1.04] ${
+                          selectedCategoryColor === color
+                            ? "border-[var(--color-ink)] ring-2 ring-[var(--color-card-tint)]"
+                            : "border-white/80"
+                        }`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => {
+                          setSelectedCategoryColor(color);
+                          setCategoryValue("color", color, {
+                            shouldDirty: true,
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </label>
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.categoryNotes}</span>
@@ -356,8 +429,42 @@ export const BudgetManager = ({
                     <Cell key={category.id} fill={category.color} />
                   ))}
                 </Pie>
+                <Tooltip
+                  formatter={(value, _name, item) => [
+                    formatCurrency(Number(value ?? 0), locale),
+                    item?.payload?.name ?? messages.budget.categoryName,
+                  ]}
+                />
               </PieChart>
             </ResponsiveContainer>
+          </CardContent>
+          <CardContent className="pt-0">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  title={`${category.name} • ${messages.budget.plan}: ${formatCurrency(
+                    category.plannedAmount,
+                    locale,
+                  )} • ${messages.budget.paid}: ${formatCurrency(
+                    category.paidAmount,
+                    locale,
+                  )}${category.notes ? ` • ${category.notes}` : ""}`}
+                  className="flex items-center justify-between rounded-[1rem] border border-[var(--color-card-tint)]/70 bg-[var(--color-card-tint)]/30 px-3 py-2 text-sm text-[var(--color-ink)]"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-3.5 w-3.5 rounded-full"
+                      style={{ backgroundColor: category.color }}
+                    />
+                    <span>{category.name}</span>
+                  </div>
+                  <span className="text-xs text-[var(--color-muted-copy)]">
+                    {formatCurrency(category.paidAmount, locale)}
+                  </span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -392,6 +499,7 @@ export const BudgetManager = ({
                         color: category.color,
                         notes: category.notes,
                       });
+                      setSelectedCategoryColor(category.color);
                     }}
                   >
                     {messages.guests.editButton}

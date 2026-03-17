@@ -1,11 +1,14 @@
 import { expect, test } from "@playwright/test";
 
+const WITNESS_EMAIL = "witness@example.com";
+const DEMO_PASSWORD = "Avatar3232!";
+
 test("witness account sees limited navigation and read-only vendor area", async ({
   page,
 }) => {
   await page.goto("/login");
-  await page.getByPlaceholder("Adres email").fill("swiadek@gmail.com");
-  await page.getByPlaceholder("Hasło").fill("Avatar3232!");
+  await page.getByPlaceholder("Adres email").fill(WITNESS_EMAIL);
+  await page.getByPlaceholder("Hasło").fill(DEMO_PASSWORD);
   await page.getByRole("button", { name: "Wejdź do planera" }).click();
 
   await expect(page).toHaveURL(/dashboard/);

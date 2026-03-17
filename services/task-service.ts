@@ -2,6 +2,7 @@ import { getRepository } from "@/db/repositories";
 import type { TaskRecord, UserRole } from "@/lib/planner-domain";
 import { taskInputSchema, type TaskInput } from "@/features/tasks/types/task";
 import { fromDateTimeLocalValue } from "@/lib/date-time";
+import { isWitnessScopedTaskViewer } from "@/lib/access-control";
 
 const buildTasks = async (): Promise<Array<TaskRecord & { notes: string }>> => {
   const repository = getRepository();
@@ -34,7 +35,10 @@ export const listTasks = async (options?: {
   const tasks = await buildTasks();
 
   return tasks.filter((task) => {
-    if (options?.viewerRole === "WITNESS" && task.assignee !== "WITNESSES") {
+    if (
+      isWitnessScopedTaskViewer(options?.viewerRole) &&
+      task.assignee !== "WITNESSES"
+    ) {
       return false;
     }
     if (options?.assignee && task.assignee !== options.assignee) {
@@ -51,8 +55,9 @@ export const createTask = async (
   const repository = getRepository();
   const wedding = await repository.getWedding();
   const data = taskInputSchema.parse(input);
-  const assignee =
-    options?.viewerRole === "WITNESS" ? "WITNESSES" : data.assignee;
+  const assignee = isWitnessScopedTaskViewer(options?.viewerRole)
+    ? "WITNESSES"
+    : data.assignee;
 
   const task = await repository.createTask(
     {

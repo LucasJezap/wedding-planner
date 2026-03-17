@@ -27,6 +27,12 @@ describe("dashboard-service", () => {
     ).toBe(true);
   });
 
+  it("hides dashboard tasks for read-only accounts", async () => {
+    const data = await getDashboardData({ viewerRole: "READ_ONLY" });
+    expect(data.taskStats.total).toBe(0);
+    expect(data.upcomingTasks).toHaveLength(0);
+  });
+
   it("falls back to the ceremony date when the timeline is empty", async () => {
     vi.spyOn(timelineService, "listTimelineEvents").mockResolvedValueOnce([]);
     const data = await getDashboardData();

@@ -1,5 +1,6 @@
 import { errorResponse, successResponse } from "@/server/api/helpers";
 import { getRequiredSession } from "@/lib/require-auth";
+import { getActivationUrl } from "@/lib/invitation";
 import {
   createAccountHandler,
   getAccountsHandler,
@@ -23,11 +24,16 @@ export const POST = async (request: Request) => {
     if (session.user.role !== "ADMIN") {
       throw new Error("Forbidden");
     }
-    const invitation = await createAccountHandler(await request.json());
     const origin = new URL(request.url).origin;
+    const input = await request.json();
+    const invitation = await createAccountHandler({
+      ...input,
+      activationOrigin: origin,
+    });
+    const activationUrl = getActivationUrl(origin, invitation.token);
     return successResponse({
       ...invitation,
-      activationUrl: `${origin}/activate?token=${invitation.token}`,
+      activationUrl,
     });
   } catch (error) {
     return errorResponse(

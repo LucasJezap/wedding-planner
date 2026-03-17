@@ -43,14 +43,14 @@ Logout redirects back to `/login`.
 Demo credentials:
 
 ```
-lucasjezap@gmail.com
+admin@example.com
 Avatar3232!
 ```
 
 Witness demo account:
 
 ```
-swiadek@gmail.com
+witness@example.com
 Avatar3232!
 ```
 
@@ -69,13 +69,16 @@ Read-only role restrictions:
 - cannot access `/budget`
 - cannot access `/import`
 - cannot access `/access`
+- sees only witness-assigned tasks on `/tasks`
 - cannot create or edit tasks
+- does not see task modules on `/dashboard`
 - guests, vendors, timeline and seating stay read-only
 
 Admin access panel:
 
 - route: `/access`
 - admin sends invitations by email instead of creating passwords directly
+- invitation creation now requires SMTP configuration and sends a styled HTML email with the activation link
 - can assign `ADMIN`, `WITNESS`, `READ_ONLY`
 - latest invitation link is shown in the admin UI for demo/testing environments
 - invited users finish activation at `/activate?token=...`
@@ -143,7 +146,7 @@ docker compose exec app npm run seed
 This seed rebuilds PostgreSQL strictly from the current contents of `docs/real-plan.md`, including:
 
 - wedding metadata
-- the admin account `lucasjezap@gmail.com`
+- the admin account `admin@example.com`
 - real vendors and contacts
 - the current task checklist
 - full budget categories with paid amounts
@@ -167,19 +170,20 @@ Import now supports:
 - `.csv`
 - `.tsv`
 
-The first row must use the exact template headers:
+The first row must use the exact Polish template headers:
 
-- `FirstName`
-- `LastName`
-- `Side`
+- `Imię`
+- `Nazwisko`
+- `Strona`
 - `Email`
-- `Phone`
-- `DietaryRestrictions`
-- `Notes`
-- `InvitationReceived`
-- `PaymentCoverage`
-- `TransportToVenue`
-- `TransportFromVenue`
+- `Telefon`
+- `Dieta`
+- `Notatki`
+- `RSVP`
+- `Zaproszenie doręczone`
+- `Płatność`
+- `Transport na salę`
+- `Transport powrotny`
 
 If the header structure is invalid, the UI returns:
 
@@ -187,8 +191,16 @@ If the header structure is invalid, the UI returns:
 
 Template download buttons are available directly in the import module for:
 
+- XLSX
+- XLS
 - CSV
 - TSV
+
+Excel templates also include:
+
+- 200 blank rows below the headers
+- a `Legenda` sheet with allowed values for enum-like columns
+- adjusted column widths per field type
 
 - one row should represent one guest/person
 
@@ -233,8 +245,6 @@ The admin guest list now shows:
 - payment coverage
 - invitation received
 - transport flags
-
-The first 4 guest records are locked against editing.
 
 When guest editing is hidden for restricted roles, the table expands to the full available width.
 

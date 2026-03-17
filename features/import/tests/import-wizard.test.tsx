@@ -17,37 +17,71 @@ vi.mock("xlsx", () => ({
     },
   })),
   utils: {
+    aoa_to_sheet: vi.fn(() => ({})),
+    book_new: vi.fn(() => ({})),
+    book_append_sheet: vi.fn(),
+    write: vi.fn(() => new ArrayBuffer(8)),
     sheet_to_json: vi.fn((sheet: { name: string }) =>
       sheet.name === "VIP"
         ? [
-            {
-              FirstName: "Jan",
-              LastName: "Nowak",
-              Side: "FRIENDS",
-              Email: "jan@example.com",
-              Phone: "123456",
-              DietaryRestrictions: "",
-              Notes: "",
-              InvitationReceived: "true",
-              PaymentCoverage: "FULL",
-              TransportToVenue: "false",
-              TransportFromVenue: "false",
-            },
+            [
+              "Imię",
+              "Nazwisko",
+              "Strona",
+              "Email",
+              "Telefon",
+              "Dieta",
+              "Notatki",
+              "RSVP",
+              "Zaproszenie doręczone",
+              "Płatność",
+              "Transport na salę",
+              "Transport powrotny",
+            ],
+            [
+              "Jan",
+              "Nowak",
+              "Przyjaciele",
+              "jan@example.com",
+              "123456",
+              "Brak",
+              "",
+              "Oczekuje",
+              "☐",
+              "100%",
+              "☐",
+              "☐",
+            ],
           ]
         : [
-            {
-              FirstName: "Ivy",
-              LastName: "Stone",
-              Side: "BRIDE",
-              Email: "ivy@example.com",
-              Phone: "123456",
-              DietaryRestrictions: "",
-              Notes: "",
-              InvitationReceived: "false",
-              PaymentCoverage: "FULL",
-              TransportToVenue: "false",
-              TransportFromVenue: "false",
-            },
+            [
+              "Imię",
+              "Nazwisko",
+              "Strona",
+              "Email",
+              "Telefon",
+              "Dieta",
+              "Notatki",
+              "RSVP",
+              "Zaproszenie doręczone",
+              "Płatność",
+              "Transport na salę",
+              "Transport powrotny",
+            ],
+            [
+              "Ivy",
+              "Stone",
+              "Panna Młoda",
+              "ivy@example.com",
+              "123456",
+              "Wege",
+              "",
+              "Potwierdzono",
+              "☑",
+              "100%",
+              "☐",
+              "☐",
+            ],
           ],
     ),
   },
@@ -61,7 +95,7 @@ describe("ImportWizard", () => {
     expect(screen.getByText("Jak przygotować plik")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Import przyjmuje pliki .xlsx lub .xls. Pierwszy wiersz powinien zawierać nagłówki kolumn.",
+        "Import przyjmuje pliki .xlsx, .xls, .csv i .tsv. Pierwszy wiersz musi zawierać polskie nagłówki z szablonu.",
       ),
     ).toBeInTheDocument();
 
@@ -84,7 +118,7 @@ describe("ImportWizard", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getAllByText("FirstName").length).toBeGreaterThan(0),
+      expect(screen.getAllByText("Imię").length).toBeGreaterThan(0),
     );
   });
 });

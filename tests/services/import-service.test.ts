@@ -11,7 +11,8 @@ describe("import-service", () => {
           side: "FRIENDS",
           email: "mia@example.com",
           phone: "+48 123 456 789",
-          dietaryRestrictions: [],
+          dietaryRestrictions: ["VEGAN"],
+          rsvpStatus: "ATTENDING",
           invitationReceived: true,
           notes: "From university",
         },
@@ -22,6 +23,13 @@ describe("import-service", () => {
     expect(
       guests.find((guest) => guest.fullName === "Mia Fox")?.invitationReceived,
     ).toBe(true);
+    expect(
+      guests.find((guest) => guest.fullName === "Mia Fox")?.rsvpStatus,
+    ).toBe("ATTENDING");
+    expect(
+      guests.find((guest) => guest.fullName === "Mia Fox")
+        ?.dietaryRestrictions[0],
+    ).toBe("VEGAN");
     await expect(listGuests()).resolves.toHaveLength(7);
   });
 

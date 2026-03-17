@@ -9,8 +9,8 @@ import { getRequiredSession } from "@/lib/require-auth";
 
 export const GET = async () => {
   try {
-    await getRequiredSession();
-    return successResponse(await getTasksHandler());
+    const session = await getRequiredSession();
+    return successResponse(await getTasksHandler(session.user.role));
   } catch (error) {
     return errorResponse(error, getErrorStatus(error));
   }

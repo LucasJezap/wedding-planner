@@ -37,6 +37,10 @@ describe("task-service", () => {
     expect(witnessTasks.every((task) => task.assignee === "WITNESSES")).toBe(
       true,
     );
+    const readOnlyTasks = await listTasks({ viewerRole: "READ_ONLY" });
+    expect(readOnlyTasks.every((task) => task.assignee === "WITNESSES")).toBe(
+      true,
+    );
     expect(
       (await listTasks({ assignee: "BRIDE" })).every(
         (task) => task.assignee === "BRIDE",

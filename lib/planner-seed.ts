@@ -7,7 +7,14 @@ const weddingId = "wedding-luna-fern";
 const now = "2026-03-13T10:00:00.000Z";
 
 export const DEMO_CREDENTIALS = {
-  email: "lucasjezap@gmail.com",
+  name: "Admin Demo",
+  email: "admin@example.com",
+  password: "Avatar3232!",
+};
+
+export const WITNESS_DEMO_CREDENTIALS = {
+  name: "Witness Demo",
+  email: "witness@example.com",
   password: "Avatar3232!",
 };
 
@@ -18,7 +25,7 @@ export const createPlannerSeed = (): PlannerState => {
       {
         id: "user-primary",
         weddingId,
-        name: "Łukasz Jezapkowicz",
+        name: DEMO_CREDENTIALS.name,
         email: DEMO_CREDENTIALS.email,
         role: "ADMIN",
         passwordHash,
@@ -606,10 +613,10 @@ export const createPlannerSeed = (): PlannerState => {
   state.users.push({
     id: "user-witness-demo",
     weddingId,
-    name: "Świadek Demo",
-    email: "swiadek@gmail.com",
+    name: WITNESS_DEMO_CREDENTIALS.name,
+    email: WITNESS_DEMO_CREDENTIALS.email,
     role: "WITNESS",
-    passwordHash: hashSync("Avatar3232!", 8),
+    passwordHash: hashSync(WITNESS_DEMO_CREDENTIALS.password, 8),
     createdAt: now,
     updatedAt: now,
   });

@@ -4,6 +4,7 @@ import { getBudgetOverview } from "@/services/budget-service";
 import { listGuests } from "@/services/guest-service";
 import { listTasks } from "@/services/task-service";
 import { listTimelineEvents } from "@/services/timeline-service";
+import { canViewDashboardTasks } from "@/lib/access-control";
 
 export const getDashboardData = async (options?: {
   viewerRole?: UserRole;
@@ -34,7 +35,10 @@ export const getDashboardData = async (options?: {
     (sum, expense) => sum + expense.actualAmount,
     0,
   );
-  const upcomingTasks = tasks
+  const visibleTasks = canViewDashboardTasks(options?.viewerRole ?? "ADMIN")
+    ? tasks
+    : [];
+  const upcomingTasks = visibleTasks
     .filter((task) => task.status !== "DONE")
     .slice()
     .sort((left, right) => left.dueDate.localeCompare(right.dueDate))
@@ -76,10 +80,11 @@ export const getDashboardData = async (options?: {
       remaining: planned - actual,
     },
     taskStats: {
-      total: tasks.length,
-      done: tasks.filter((task) => task.status === "DONE").length,
-      inProgress: tasks.filter((task) => task.status === "IN_PROGRESS").length,
-      todo: tasks.filter((task) => task.status === "TODO").length,
+      total: visibleTasks.length,
+      done: visibleTasks.filter((task) => task.status === "DONE").length,
+      inProgress: visibleTasks.filter((task) => task.status === "IN_PROGRESS")
+        .length,
+      todo: visibleTasks.filter((task) => task.status === "TODO").length,
     },
     nextEvents: events.slice(0, 3),
     categorySpend: budget.categories.map((category) => ({

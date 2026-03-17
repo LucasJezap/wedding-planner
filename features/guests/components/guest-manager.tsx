@@ -170,7 +170,7 @@ export const GuestManager = ({
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-[var(--color-ink)]">
-                  <span>{messages.pages.guests.title}</span>
+                  <span>{messages.guests.side}</span>
                   <select
                     className="h-10 w-full rounded-xl border px-3"
                     {...register("side")}
@@ -343,15 +343,10 @@ export const GuestManager = ({
               </TableHeader>
               <TableBody>
                 {filteredGuests.map((guest) => {
-                  const isProtectedGuest =
-                    guests.findIndex((candidate) => candidate.id === guest.id) <
-                    4;
                   return (
                     <TableRow
                       key={guest.id}
-                      onDoubleClick={() =>
-                        canEdit && !isProtectedGuest && handleEdit(guest)
-                      }
+                      onDoubleClick={() => canEdit && handleEdit(guest)}
                     >
                       <TableCell>
                         <div>
@@ -414,12 +409,9 @@ export const GuestManager = ({
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={isProtectedGuest}
                               onClick={() => handleEdit(guest)}
                             >
-                              {isProtectedGuest
-                                ? messages.guests.protected
-                                : messages.guests.editButton}
+                              {messages.guests.editButton}
                             </Button>
                             <Button
                               size="sm"

@@ -13,7 +13,12 @@ export type PlannerSection =
   | "public";
 
 const restrictedForWitness = new Set<PlannerSection>(["budget", "import"]);
-const restrictedForReadOnly = new Set<PlannerSection>(["budget", "import"]);
+const restrictedForReadOnly = new Set<PlannerSection>([
+  "budget",
+  "import",
+  "tasks",
+]);
+const rolesLimitedToWitnessTasks = new Set<UserRole>(["WITNESS", "READ_ONLY"]);
 
 export const canAccessSection = (
   role: UserRole,
@@ -42,3 +47,7 @@ export const canEditTimeline = (role: UserRole): boolean => role === "ADMIN";
 export const canEditSeating = (role: UserRole): boolean => role === "ADMIN";
 export const canCreateTasks = (role: UserRole): boolean => role !== "READ_ONLY";
 export const canEditTasks = (role: UserRole): boolean => role === "ADMIN";
+export const canViewDashboardTasks = (role: UserRole): boolean =>
+  role !== "READ_ONLY";
+export const isWitnessScopedTaskViewer = (role?: UserRole): boolean =>
+  role ? rolesLimitedToWitnessTasks.has(role) : false;

@@ -11,7 +11,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: `sh -c 'npm run build && APP_DATA_MODE=memory NEXTAUTH_URL=http://localhost:${port} npx next start --hostname 127.0.0.1 --port ${port}'`,
+    command: `sh -c 'npm run build && APP_DATA_MODE=memory INVITATION_EMAIL_MODE=skip NEXTAUTH_URL=http://localhost:${port} npx next start --hostname 127.0.0.1 --port ${port}'`,
     port,
     reuseExistingServer: false,
     timeout: 120_000,

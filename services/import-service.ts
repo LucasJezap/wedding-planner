@@ -15,10 +15,11 @@ export const importGuests = async (
       firstName: row.firstName,
       lastName: row.lastName,
       side: row.side,
-      rsvpStatus: "PENDING",
-      dietaryRestrictions: (row.dietaryRestrictions as Array<
-        "NONE" | "VEGETARIAN" | "VEGAN"
-      >) || ["NONE"],
+      rsvpStatus: row.rsvpStatus ?? "PENDING",
+      dietaryRestrictions:
+        row.dietaryRestrictions.length > 0
+          ? (row.dietaryRestrictions as Array<"NONE" | "VEGETARIAN" | "VEGAN">)
+          : ["NONE"],
       paymentCoverage: row.paymentCoverage ?? "FULL",
       invitationReceived: row.invitationReceived ?? false,
       transportToVenue: row.transportToVenue ?? false,

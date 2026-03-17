@@ -22,7 +22,7 @@ import type {
   VendorRecord,
   WeddingTableRecord,
 } from "@/lib/planner-domain";
-import { DEMO_CREDENTIALS } from "@/lib/planner-seed";
+import { DEMO_CREDENTIALS, WITNESS_DEMO_CREDENTIALS } from "@/lib/planner-seed";
 
 const weddingId = "wedding-katarzyna-lukasz";
 const now = "2026-03-13T10:00:00.000Z";
@@ -69,6 +69,11 @@ type SeedGuest = Omit<
   placeholderType?: "ADULT" | "CHILD";
 };
 
+type ParsedGuestListEntry = {
+  name: string;
+  side: GuestRecord["side"];
+};
+
 const normalizeValue = (value: string) =>
   value
     .replace(/\u00a0/g, " ")
@@ -79,6 +84,8 @@ const normalizeKey = (value: string) =>
   normalizeValue(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ł/g, "l")
+    .replace(/Ł/g, "L")
     .toLowerCase();
 
 const slugify = (value: string) =>
@@ -346,6 +353,104 @@ const parseHouseholds = (document: string): ParsedHousehold[] =>
     })
     .filter((household) => household.names);
 
+const parseGuestList = (document: string): ParsedGuestListEntry[] => {
+  const lines = readSection(document, "LISTA");
+  const guests: ParsedGuestListEntry[] = [];
+
+  for (const line of lines) {
+    const normalized = normalizeValue(line);
+    if (!normalized || normalized.startsWith("Znacznik")) {
+      break;
+    }
+
+    const parts = splitStructuredLine(normalized);
+    if (parts.length < 2) {
+      continue;
+    }
+
+    const name = parts[0] ?? "";
+    const sideLabel = normalizeKey(parts.at(-1) ?? "");
+    const side =
+      sideLabel === "panna mloda"
+        ? "BRIDE"
+        : sideLabel === "pan mlody"
+          ? "GROOM"
+          : sideLabel === "przyjaciele"
+            ? "FRIENDS"
+            : "FAMILY";
+
+    if (name) {
+      guests.push({ name, side });
+    }
+  }
+
+  return guests;
+};
+
+const splitListedGuestName = (value: string) => {
+  const normalized = normalizeValue(value);
+  if (
+    !normalized ||
+    normalized === "Pan Młody" ||
+    normalized === "Panna Młoda" ||
+    normalized.includes(" - OT") ||
+    normalized.includes("(")
+  ) {
+    return { firstName: normalized, lastName: "" };
+  }
+
+  const segments = normalized.split(" ");
+  if (segments.length < 2) {
+    return { firstName: normalized, lastName: "" };
+  }
+
+  return {
+    firstName: segments.slice(0, -1).join(" "),
+    lastName: segments.at(-1) ?? "",
+  };
+};
+
+const buildWeddingMetadata = (document: string) => {
+  const parsedGuests = parseGuestList(document);
+  const bride = parsedGuests.find((guest) => guest.side === "BRIDE");
+  const groom = parsedGuests.find((guest) => guest.side === "GROOM");
+  const brideName = splitListedGuestName(bride?.name ?? "Partner A").firstName;
+  const groomName = splitListedGuestName(groom?.name ?? "Partner B").firstName;
+
+  return {
+    slug: slugify(`${brideName}-${groomName}`) || "demo-wedding",
+    title: `${brideName} & ${groomName}`,
+    coupleOneName: brideName,
+    coupleTwoName: groomName,
+  };
+};
+
+const buildGuestRosterFromList = (document: string) => {
+  const parsedGuests = parseGuestList(document);
+  const guests: SeedGuest[] = parsedGuests.map((guest, index) => {
+    const nameParts = splitListedGuestName(guest.name);
+
+    return {
+      id: `guest-real-${index + 1}`,
+      weddingId,
+      firstName: nameParts.firstName,
+      lastName: nameParts.lastName,
+      side: guest.side,
+      rsvpStatus: "PENDING",
+      dietaryRestrictions: [],
+      invitationReceived: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+  });
+
+  return {
+    guests,
+    contacts: [] as ContactRecord[],
+    notes: [] as NoteRecord[],
+  };
+};
+
 const parseSeating = (document: string): ParsedTable[] => {
   return readSection(document, "Ulozenie stolow")
     .map(splitStructuredLine)
@@ -386,6 +491,11 @@ const classifySide = (lastName: string): GuestRecord["side"] => {
 };
 
 const buildGuestRoster = (document: string) => {
+  const guestListRoster = buildGuestRosterFromList(document);
+  if (guestListRoster.guests.length) {
+    return guestListRoster;
+  }
+
   const households = parseHouseholds(document);
   const guests: SeedGuest[] = [];
   const contacts: ContactRecord[] = [];
@@ -780,6 +890,7 @@ const buildTimeline = (): TimelineEventRecord[] => [
 export const buildSeedFromRealPlanDocument = (
   document: string,
 ): PlannerState => {
+  const weddingMetadata = buildWeddingMetadata(document);
   const parsedExpenses = parseExpenses(document);
   const parsedContacts = parseContacts(document);
   const {
@@ -802,7 +913,7 @@ export const buildSeedFromRealPlanDocument = (
       {
         id: "user-lukasz-jezapkowicz",
         weddingId,
-        name: "Łukasz Jezapkowicz",
+        name: DEMO_CREDENTIALS.name,
         email: DEMO_CREDENTIALS.email,
         role: "ADMIN",
         passwordHash: hashSync(DEMO_CREDENTIALS.password, 8),
@@ -812,10 +923,10 @@ export const buildSeedFromRealPlanDocument = (
       {
         id: "user-witness-real",
         weddingId,
-        name: "Świadek Demo",
-        email: "swiadek@gmail.com",
+        name: WITNESS_DEMO_CREDENTIALS.name,
+        email: WITNESS_DEMO_CREDENTIALS.email,
         role: "WITNESS",
-        passwordHash: hashSync("Avatar3232!", 8),
+        passwordHash: hashSync(WITNESS_DEMO_CREDENTIALS.password, 8),
         createdAt: now,
         updatedAt: now,
       },
@@ -823,10 +934,10 @@ export const buildSeedFromRealPlanDocument = (
     userInvitations: [],
     wedding: {
       id: weddingId,
-      slug: "katarzyna-lukasz",
-      title: "Katarzyna & Łukasz",
-      coupleOneName: "Katarzyna",
-      coupleTwoName: "Łukasz",
+      slug: weddingMetadata.slug,
+      title: weddingMetadata.title,
+      coupleOneName: weddingMetadata.coupleOneName,
+      coupleTwoName: weddingMetadata.coupleTwoName,
       venueName: "Leśna Perła",
       venueAddress: "Radlin, Polska",
       ceremonyDate,

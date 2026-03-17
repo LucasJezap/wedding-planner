@@ -1,3 +1,5 @@
+import { vi } from "vitest";
+
 import {
   acceptInvitation,
   authenticateUser,
@@ -8,13 +10,28 @@ import {
 } from "@/services/auth-service";
 import { DEMO_CREDENTIALS } from "@/lib/planner-seed";
 
+vi.mock("@/services/email-service", () => ({
+  sendAccountInvitationEmail: vi.fn().mockResolvedValue(undefined),
+}));
+
+const invitationInput = (
+  email: string,
+  role: "ADMIN" | "WITNESS" | "READ_ONLY",
+) => ({
+  weddingId: "wedding-luna-fern",
+  email,
+  role,
+  activationOrigin: "http://localhost:3000",
+  coupleNames: "Kasia & Łukasz",
+});
+
 describe("authenticateUser", () => {
   it("returns the planner when credentials are valid", async () => {
     await expect(
       authenticateUser(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password),
     ).resolves.toMatchObject({
       email: DEMO_CREDENTIALS.email,
-      name: "Łukasz Jezapkowicz",
+      name: DEMO_CREDENTIALS.name,
     });
   });
 
@@ -32,9 +49,7 @@ describe("authenticateUser", () => {
 
   it("creates and updates managed accounts", async () => {
     const invitation = await createAccountInvitation({
-      weddingId: "wedding-luna-fern",
-      email: "readonly@example.com",
-      role: "READ_ONLY",
+      ...invitationInput("readonly@example.com", "READ_ONLY"),
     });
 
     expect(invitation.role).toBe("READ_ONLY");
@@ -56,14 +71,17 @@ describe("authenticateUser", () => {
 
     const updated = await updateAccountRole(created.id, "WITNESS");
     expect(updated.role).toBe("WITNESS");
+    expect(
+      (await listAccountInvitations()).some(
+        (item) => item.email === "readonly@example.com",
+      ),
+    ).toBe(false);
   });
 
   it("rejects inviting an existing account", async () => {
     await expect(
       createAccountInvitation({
-        weddingId: "wedding-luna-fern",
-        email: DEMO_CREDENTIALS.email,
-        role: "ADMIN",
+        ...invitationInput(DEMO_CREDENTIALS.email, "ADMIN"),
       }),
     ).rejects.toThrow("Account already exists");
   });
@@ -79,9 +97,7 @@ describe("authenticateUser", () => {
     ).rejects.toThrow("Invitation not found");
 
     const accepted = await createAccountInvitation({
-      weddingId: "wedding-luna-fern",
-      email: "accepted@example.com",
-      role: "WITNESS",
+      ...invitationInput("accepted@example.com", "WITNESS"),
     });
     await acceptInvitation({
       token: accepted.token,
@@ -99,9 +115,7 @@ describe("authenticateUser", () => {
     ).rejects.toThrow("Invitation already accepted");
 
     const expired = await createAccountInvitation({
-      weddingId: "wedding-luna-fern",
-      email: "expired@example.com",
-      role: "READ_ONLY",
+      ...invitationInput("expired@example.com", "READ_ONLY"),
     });
     const invitations = await listAccountInvitations();
     const expiredInvitation = invitations.find(

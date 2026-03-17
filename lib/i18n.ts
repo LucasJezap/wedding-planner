@@ -114,7 +114,7 @@ const dictionaries = {
       },
       guests: {
         eyebrow: "Goście",
-        title: "Zadbaj o doświadczenie gości",
+        title: "Strona",
         description:
           "Wyszukuj, segmentuj i aktualizuj każdy rekord gościa wraz z kontaktem, dietą, RSVP i przypisaniem do stołu.",
       },
@@ -203,6 +203,7 @@ const dictionaries = {
       list: "Lista gości",
       search: "Szukaj gości",
       allSides: "Wszystkie strony",
+      side: "Strona",
       name: "Nazwisko i imię",
       rsvp: "RSVP",
       diet: "Dieta",
@@ -322,11 +323,13 @@ const dictionaries = {
       uploadWorkbook: "Wczytaj skoroszyt",
       instructionsTitle: "Jak przygotować plik",
       instructionsLead:
-        "Import przyjmuje pliki .xlsx lub .xls. Pierwszy wiersz powinien zawierać nagłówki kolumn.",
+        "Import przyjmuje pliki .xlsx, .xls, .csv i .tsv. Pierwszy wiersz musi zawierać polskie nagłówki z szablonu.",
       instructionsRows: [
         "Jeden wiersz oznacza jednego gościa lub jedną osobę z listy.",
         "Po wczytaniu możesz wskazać dowolny arkusz i ręcznie zmapować kolumny.",
         "Minimalnie potrzebne są kolumny z imieniem i nazwiskiem; reszta jest opcjonalna.",
+        "Dla pól Strona, Dieta, RSVP i Płatność używaj wartości z arkusza Legenda.",
+        "Pola checkbox możesz oznaczać jako ☑ / ☐ albo Tak / Nie.",
       ],
       sampleColumns: "Przykładowe nagłówki",
       mapColumns: "Mapowanie kolumn",
@@ -497,7 +500,7 @@ const dictionaries = {
       },
       guests: {
         eyebrow: "Guests",
-        title: "Curate the guest experience",
+        title: "Side",
         description:
           "Search, segment, and update every guest record with contact details, dietary notes, RSVP status, and seating context.",
       },
@@ -585,6 +588,7 @@ const dictionaries = {
       list: "Guest list",
       search: "Search guests",
       allSides: "All sides",
+      side: "Side",
       name: "Name",
       rsvp: "RSVP",
       diet: "Diet",
@@ -703,11 +707,13 @@ const dictionaries = {
       uploadWorkbook: "Upload workbook",
       instructionsTitle: "How to prepare the file",
       instructionsLead:
-        "The importer accepts .xlsx or .xls files. The first row should contain column headers.",
+        "The importer accepts .xlsx, .xls, .csv, and .tsv files. The first row must use the Polish headers from the template.",
       instructionsRows: [
         "Use one row per guest or invited person.",
         "After upload you can choose any sheet and remap the columns manually.",
         "Only first name and last name are required; the rest stays optional.",
+        "Use the Legend sheet for Side, Diet, RSVP, and Payment values.",
+        "Checkbox fields accept ☑ / ☐ as well as Yes / No.",
       ],
       sampleColumns: "Sample headers",
       mapColumns: "Map columns",

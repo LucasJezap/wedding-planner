@@ -1,4 +1,10 @@
 import { createPlannerSeed } from "@/lib/planner-seed";
+import {
+  buildSeatLabel,
+  isSyntheticSeatId,
+  parseSyntheticSeatId,
+  SEATS_PER_TABLE,
+} from "@/features/seating/lib/seating-seat";
 import type {
   ExpenseRecord,
   GuestRecord,
@@ -34,6 +40,20 @@ const required = <T>(value: T | undefined, label: string): T => {
 
   return value;
 };
+
+const createSeatRecord = (input: {
+  weddingId: string;
+  tableId: string;
+  position: number;
+}): PlannerState["seats"][number] => ({
+  id: createId("seat"),
+  weddingId: input.weddingId,
+  tableId: input.tableId,
+  label: buildSeatLabel(input.position),
+  position: input.position,
+  createdAt: now(),
+  updatedAt: now(),
+});
 
 export const resetPlannerStore = (): void => {
   state = createPlannerSeed();
@@ -368,38 +388,95 @@ export const memoryPlannerRepository: PlannerRepository = {
     );
   },
   async assignGuestToSeat(guestId, seatId) {
-    state.seats = state.seats.map((seat) =>
-      seat.guestId === guestId
-        ? updateRecord(seat, { guestId: undefined })
-        : seat,
+    const guest = required(
+      state.guests.find((candidate) => candidate.id === guestId),
+      "Guest",
     );
-    state.guests = state.guests.map((guest) =>
-      guest.id === guestId
-        ? updateRecord(guest, { tableId: undefined })
-        : guest,
-    );
+    const sourceSeat =
+      state.seats.find((candidate) => candidate.guestId === guestId) ?? null;
 
-    if (seatId) {
-      const seat = required(
-        state.seats.find((candidate) => candidate.id === seatId),
-        "Seat",
-      );
-      const existingGuestId = seat.guestId;
-      if (existingGuestId) {
-        state.guests = state.guests.map((guest) =>
-          guest.id === existingGuestId
-            ? updateRecord(guest, { tableId: undefined })
-            : guest,
+    if (!seatId) {
+      if (sourceSeat) {
+        Object.assign(
+          sourceSeat,
+          updateRecord(sourceSeat, { guestId: undefined }),
         );
       }
+      Object.assign(guest, updateRecord(guest, { tableId: undefined }));
+      return;
+    }
 
-      Object.assign(seat, updateRecord(seat, { guestId }));
-      const guest = required(
-        state.guests.find((candidate) => candidate.id === guestId),
+    const targetSeat =
+      state.seats.find((candidate) => candidate.id === seatId) ??
+      (() => {
+        if (!isSyntheticSeatId(seatId)) {
+          return undefined;
+        }
+
+        const parsedSeat = parseSyntheticSeatId(seatId);
+        if (!parsedSeat) {
+          return undefined;
+        }
+
+        const table = required(
+          state.weddingTables.find(
+            (candidate) => candidate.id === parsedSeat.tableId,
+          ),
+          "Table",
+        );
+        const createdSeat = createSeatRecord({
+          weddingId: table.weddingId,
+          tableId: table.id,
+          position: parsedSeat.position,
+        });
+        state.seats.push(createdSeat);
+        return createdSeat;
+      })();
+
+    const seat = required(targetSeat, "Seat");
+    if (sourceSeat?.id === seat.id) {
+      return;
+    }
+
+    const targetGuestId = seat.guestId;
+
+    if (sourceSeat) {
+      Object.assign(
+        sourceSeat,
+        updateRecord(sourceSeat, { guestId: targetGuestId ?? undefined }),
+      );
+    }
+
+    if (targetGuestId) {
+      const targetGuest = required(
+        state.guests.find((candidate) => candidate.id === targetGuestId),
         "Guest",
       );
+      Object.assign(
+        targetGuest,
+        updateRecord(targetGuest, {
+          tableId: sourceSeat?.tableId,
+        }),
+      );
+    }
+
+    if (!sourceSeat && targetGuestId) {
       Object.assign(guest, updateRecord(guest, { tableId: seat.tableId }));
     }
+
+    if (!sourceSeat && !targetGuestId) {
+      Object.assign(guest, updateRecord(guest, { tableId: seat.tableId }));
+    }
+
+    if (sourceSeat && !targetGuestId) {
+      Object.assign(
+        sourceSeat,
+        updateRecord(sourceSeat, { guestId: undefined }),
+      );
+    }
+
+    Object.assign(seat, updateRecord(seat, { guestId }));
+    Object.assign(guest, updateRecord(guest, { tableId: seat.tableId }));
   },
   async updateTablePosition(tableId, position) {
     const table = required(
@@ -408,6 +485,85 @@ export const memoryPlannerRepository: PlannerRepository = {
     );
     Object.assign(table, updateRecord(table, position));
     return table;
+  },
+  async swapTableAssignments(sourceTableId, targetTableId) {
+    for (let position = 1; position <= SEATS_PER_TABLE; position += 1) {
+      const sourceSeat =
+        state.seats.find(
+          (candidate) =>
+            candidate.tableId === sourceTableId &&
+            candidate.position === position,
+        ) ??
+        (() => {
+          const sourceTable = required(
+            state.weddingTables.find(
+              (candidate) => candidate.id === sourceTableId,
+            ),
+            "Table",
+          );
+          const createdSeat = createSeatRecord({
+            weddingId: sourceTable.weddingId,
+            tableId: sourceTableId,
+            position,
+          });
+          state.seats.push(createdSeat);
+          return createdSeat;
+        })();
+      const targetSeat =
+        state.seats.find(
+          (candidate) =>
+            candidate.tableId === targetTableId &&
+            candidate.position === position,
+        ) ??
+        (() => {
+          const targetTable = required(
+            state.weddingTables.find(
+              (candidate) => candidate.id === targetTableId,
+            ),
+            "Table",
+          );
+          const createdSeat = createSeatRecord({
+            weddingId: targetTable.weddingId,
+            tableId: targetTableId,
+            position,
+          });
+          state.seats.push(createdSeat);
+          return createdSeat;
+        })();
+
+      const sourceGuestId = sourceSeat.guestId;
+      const targetGuestId = targetSeat.guestId;
+
+      Object.assign(
+        sourceSeat,
+        updateRecord(sourceSeat, { guestId: targetGuestId ?? undefined }),
+      );
+      Object.assign(
+        targetSeat,
+        updateRecord(targetSeat, { guestId: sourceGuestId ?? undefined }),
+      );
+
+      if (sourceGuestId) {
+        const sourceGuest = required(
+          state.guests.find((candidate) => candidate.id === sourceGuestId),
+          "Guest",
+        );
+        Object.assign(
+          sourceGuest,
+          updateRecord(sourceGuest, { tableId: targetTableId }),
+        );
+      }
+      if (targetGuestId) {
+        const targetGuest = required(
+          state.guests.find((candidate) => candidate.id === targetGuestId),
+          "Guest",
+        );
+        Object.assign(
+          targetGuest,
+          updateRecord(targetGuest, { tableId: sourceTableId }),
+        );
+      }
+    }
   },
   async upsertRsvp(rsvp) {
     const existing = state.rsvps.find(

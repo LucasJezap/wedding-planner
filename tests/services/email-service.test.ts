@@ -30,6 +30,7 @@ describe("email-service", () => {
     delete process.env.SMTP_PASS;
     delete process.env.SMTP_FROM_EMAIL;
     delete process.env.SMTP_FROM_NAME;
+    vi.unstubAllEnvs();
   });
 
   it("sends a formatted invitation email", async () => {
@@ -52,9 +53,8 @@ describe("email-service", () => {
   });
 
   it("throws when SMTP configuration is missing", async () => {
-    const previousNodeEnv = process.env.NODE_ENV;
     delete process.env.SMTP_HOST;
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
 
     await expect(
       sendAccountInvitationEmail({
@@ -65,8 +65,6 @@ describe("email-service", () => {
         expiresAt: "2026-04-01T12:00:00.000Z",
       }),
     ).rejects.toThrow("Invitation email is not configured");
-
-    process.env.NODE_ENV = previousNodeEnv;
   });
 
   it("skips delivery outside production when SMTP is missing", async () => {

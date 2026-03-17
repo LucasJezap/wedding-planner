@@ -1,7 +1,10 @@
 import { getRepository } from "@/db/repositories";
+import { sortWeddingTables } from "@/features/seating/lib/seating-table-order";
 import type { SeatingTableView } from "@/lib/planner-domain";
+import { ensureTableSeats } from "@/features/seating/lib/seating-seat";
 import {
   seatingAssignmentSchema,
+  seatingTableSwapSchema,
   seatingTablePositionSchema,
   type SeatingBoard,
 } from "@/features/seating/types/seating";
@@ -15,16 +18,18 @@ const buildTables = async (): Promise<SeatingTableView[]> => {
     listGuests(),
   ]);
 
-  return tables.map((table) => ({
+  return sortWeddingTables(tables).map((table) => ({
     ...table,
-    seats: seats
-      .filter((seat) => seat.tableId === table.id)
-      .sort((left, right) => left.position - right.position)
-      .map((seat) => ({
-        ...seat,
-        guestName: guests.find((candidate) => candidate.id === seat.guestId)
-          ?.fullName,
-      })),
+    seats: ensureTableSeats(
+      table.id,
+      seats
+        .filter((seat) => seat.tableId === table.id)
+        .sort((left, right) => left.position - right.position),
+    ).map((seat) => ({
+      ...seat,
+      guestName: guests.find((candidate) => candidate.id === seat.guestId)
+        ?.fullName,
+    })),
   }));
 };
 
@@ -67,5 +72,15 @@ export const updateTablePosition = async (input: {
     positionX: data.positionX,
     positionY: data.positionY,
   });
+  return getSeatingBoard();
+};
+
+export const swapTableAssignments = async (input: {
+  sourceTableId: string;
+  targetTableId: string;
+}): Promise<SeatingBoard> => {
+  const data = seatingTableSwapSchema.parse(input);
+  const repository = getRepository();
+  await repository.swapTableAssignments(data.sourceTableId, data.targetTableId);
   return getSeatingBoard();
 };

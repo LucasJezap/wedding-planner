@@ -317,7 +317,7 @@ const dictionaries = {
       unassignedGuests: "Goście bez stołu",
       dropGuestHere: "Upuść gościa tutaj",
       roundLayout: "Stoły okrągłe",
-      uShapeLayout: "Układ U",
+      uShapeLayout: "Stoły prostokątne",
     },
     import: {
       uploadWorkbook: "Wczytaj skoroszyt",
@@ -701,7 +701,7 @@ const dictionaries = {
       unassignedGuests: "Unassigned guests",
       dropGuestHere: "Drop guest here",
       roundLayout: "Round tables",
-      uShapeLayout: "U shape",
+      uShapeLayout: "Rectangular tables",
     },
     import: {
       uploadWorkbook: "Upload workbook",

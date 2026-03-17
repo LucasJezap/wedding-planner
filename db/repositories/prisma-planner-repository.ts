@@ -1,6 +1,12 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/db/prisma";
+import {
+  buildSeatLabel,
+  isSyntheticSeatId,
+  parseSyntheticSeatId,
+  SEATS_PER_TABLE,
+} from "@/features/seating/lib/seating-seat";
 import type {
   BudgetCategoryRecord,
   ContactRecord,
@@ -885,35 +891,91 @@ export const prismaPlannerRepository: PlannerRepository = {
   },
   async assignGuestToSeat(guestId, seatId) {
     await db.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.seat.updateMany({
-        where: { guestId },
-        data: { guestId: null },
-      });
-      await tx.guest.update({
-        where: { id: guestId },
-        data: { tableId: null },
-      });
-
       if (!seatId) {
+        await tx.seat.updateMany({
+          where: { guestId },
+          data: { guestId: null },
+        });
+        await tx.guest.update({
+          where: { id: guestId },
+          data: { tableId: null },
+        });
         return;
       }
 
-      const seat = await tx.seat.findUniqueOrThrow({ where: { id: seatId } });
-      if (seat.guestId) {
-        await tx.guest.update({
-          where: { id: seat.guestId },
-          data: { tableId: null },
+      const sourceSeat = await tx.seat.findFirst({
+        where: { guestId },
+      });
+      const seat =
+        (await tx.seat.findUnique({
+          where: { id: seatId },
+        })) ??
+        (async () => {
+          if (!isSyntheticSeatId(seatId)) {
+            return null;
+          }
+
+          const parsedSeat = parseSyntheticSeatId(seatId);
+          if (!parsedSeat) {
+            return null;
+          }
+
+          const table = await tx.weddingTable.findUniqueOrThrow({
+            where: { id: parsedSeat.tableId },
+          });
+
+          return tx.seat.create({
+            data: {
+              weddingId: table.weddingId,
+              tableId: table.id,
+              label: buildSeatLabel(parsedSeat.position),
+              position: parsedSeat.position,
+            },
+          });
+        })();
+      const targetSeat = await seat;
+      if (!targetSeat) {
+        throw new Error("Seat not found");
+      }
+      if (sourceSeat?.id === targetSeat.id) {
+        return;
+      }
+
+      const targetGuestId = targetSeat.guestId;
+
+      await tx.seat.update({
+        where: { id: targetSeat.id },
+        data: { guestId: null },
+      });
+
+      if (sourceSeat) {
+        await tx.seat.update({
+          where: { id: sourceSeat.id },
+          data: { guestId: null },
         });
       }
 
+      if (targetGuestId) {
+        await tx.guest.update({
+          where: { id: targetGuestId },
+          data: { tableId: sourceSeat?.tableId ?? null },
+        });
+        if (sourceSeat) {
+          await tx.seat.update({
+            where: { id: sourceSeat.id },
+            data: { guestId: targetGuestId },
+          });
+        }
+      }
+
       await tx.seat.update({
-        where: { id: seatId },
+        where: { id: targetSeat.id },
         data: { guestId },
       });
 
       await tx.guest.update({
         where: { id: guestId },
-        data: { tableId: seat.tableId },
+        data: { tableId: targetSeat.tableId },
       });
     });
   },
@@ -927,6 +989,92 @@ export const prismaPlannerRepository: PlannerRepository = {
         },
       }),
     );
+  },
+  async swapTableAssignments(sourceTableId, targetTableId) {
+    await db.$transaction(async (tx: Prisma.TransactionClient) => {
+      const sourceTable = await tx.weddingTable.findUniqueOrThrow({
+        where: { id: sourceTableId },
+      });
+      const targetTable = await tx.weddingTable.findUniqueOrThrow({
+        where: { id: targetTableId },
+      });
+      const seatPairs: Array<{
+        sourceSeatId: string;
+        targetSeatId: string;
+        sourceGuestId: string | null;
+        targetGuestId: string | null;
+      }> = [];
+
+      for (let position = 1; position <= SEATS_PER_TABLE; position += 1) {
+        const sourceSeat =
+          (await tx.seat.findFirst({
+            where: { tableId: sourceTableId, position },
+          })) ??
+          (await tx.seat.create({
+            data: {
+              weddingId: sourceTable.weddingId,
+              tableId: sourceTableId,
+              label: buildSeatLabel(position),
+              position,
+            },
+          }));
+        const targetSeat =
+          (await tx.seat.findFirst({
+            where: { tableId: targetTableId, position },
+          })) ??
+          (await tx.seat.create({
+            data: {
+              weddingId: targetTable.weddingId,
+              tableId: targetTableId,
+              label: buildSeatLabel(position),
+              position,
+            },
+          }));
+
+        seatPairs.push({
+          sourceSeatId: sourceSeat.id,
+          targetSeatId: targetSeat.id,
+          sourceGuestId: sourceSeat.guestId,
+          targetGuestId: targetSeat.guestId,
+        });
+      }
+
+      await tx.seat.updateMany({
+        where: {
+          id: {
+            in: seatPairs.flatMap((pair) => [
+              pair.sourceSeatId,
+              pair.targetSeatId,
+            ]),
+          },
+        },
+        data: { guestId: null },
+      });
+
+      for (const pair of seatPairs) {
+        await tx.seat.update({
+          where: { id: pair.sourceSeatId },
+          data: { guestId: pair.targetGuestId },
+        });
+        await tx.seat.update({
+          where: { id: pair.targetSeatId },
+          data: { guestId: pair.sourceGuestId },
+        });
+
+        if (pair.sourceGuestId) {
+          await tx.guest.update({
+            where: { id: pair.sourceGuestId },
+            data: { tableId: targetTableId },
+          });
+        }
+        if (pair.targetGuestId) {
+          await tx.guest.update({
+            where: { id: pair.targetGuestId },
+            data: { tableId: sourceTableId },
+          });
+        }
+      }
+    });
   },
   async upsertRsvp(rsvp) {
     const record = await db.rsvp.upsert({

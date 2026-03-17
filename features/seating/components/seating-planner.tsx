@@ -1,189 +1,83 @@
 "use client";
 
-import {
-  DndContext,
-  useDraggable,
-  useDroppable,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { DragEvent as ReactDragEvent } from "react";
+import { Circle, Group, Layer, Rect, Stage, Text } from "react-konva";
+import type Konva from "konva";
 
 import { useLocale } from "@/components/locale-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SeatingCanvasTable } from "@/features/seating/components/seating-canvas-table";
+import {
+  SEATING_STAGE_PADDING,
+  SEATING_TABLE_BOX,
+  findSeatAtPoint,
+  getBoardBounds,
+  getNearestSlotIndex,
+  getTableSlots,
+  type TableShape,
+} from "@/features/seating/lib/seating-canvas";
 import { useSeatingSummary } from "@/features/seating/hooks/use-seating-summary";
 import type { SeatingBoard } from "@/features/seating/types/seating";
 import { canEditSeating } from "@/lib/access-control";
 import { apiClient } from "@/lib/api-client";
 import type { UserRole } from "@/lib/planner-domain";
 
-const buildDefaultPositions = (
-  layout: "ROUND" | "U_SHAPE",
-  tables: Array<{ id: string; positionX: number; positionY: number }>,
-) =>
-  Object.fromEntries(
-    tables.map((table, index) => {
-      if (table.positionX !== 0 || table.positionY !== 0) {
-        return [table.id, { x: table.positionX, y: table.positionY }];
-      }
-      if (layout === "U_SHAPE") {
-        const presets = [
-          { x: 30, y: 30 },
-          { x: 30, y: 300 },
-          { x: 340, y: 460 },
-          { x: 650, y: 300 },
-          { x: 650, y: 30 },
-          { x: 340, y: 30 },
-        ];
-        return [
-          table.id,
-          presets[index] ?? { x: 60 + index * 40, y: 80 + index * 30 },
-        ];
-      }
-
-      const column = index % 3;
-      const row = Math.floor(index / 3);
-      return [table.id, { x: column * 320 + 20, y: row * 280 + 20 }];
-    }),
-  );
-
-const DraggableGuest = ({
-  guestId,
-  name,
-}: {
-  guestId: string;
-  name: string;
-}) => {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: guestId,
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform) }}
-      className="rounded-full bg-[var(--color-dusty-rose)] px-4 py-2 text-sm text-white"
-      {...listeners}
-      {...attributes}
-    >
-      {name}
-    </div>
-  );
-};
-
-const DraggableTable = ({
-  tableId,
-  position,
-  children,
-}: {
-  tableId: string;
-  position: { x: number; y: number };
-  children: React.ReactNode;
-}) => {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: `table:${tableId}`,
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        position: "absolute",
-        left: position.x,
-        top: position.y,
-        width: 300,
-        transform: CSS.Translate.toString(transform),
-      }}
-      {...listeners}
-      {...attributes}
-    >
-      {children}
-    </div>
-  );
-};
-
-const DroppableUnassigned = ({
-  children,
-  label,
-}: {
-  children: React.ReactNode;
-  label: string;
-}) => {
-  const { isOver, setNodeRef } = useDroppable({
-    id: "unassigned",
-  });
-
-  return (
-    <div ref={setNodeRef}>
-      <Card
-        className="border-white/70 bg-white/85"
-        style={{ background: isOver ? "#fde9ef" : undefined }}
-      >
-        <CardHeader>
-          <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
-            {label}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">{children}</CardContent>
-      </Card>
-    </div>
-  );
-};
-
-const DroppableSeat = ({
-  seatId,
-  label,
-  guestName,
-  guestId,
-  emptyLabel,
-  canEdit,
-  guestOptions,
-  onAssignByName,
-}: {
+type SeatEditorState = {
   seatId: string;
-  label: string;
-  guestName?: string;
   guestId?: string;
-  emptyLabel: string;
-  canEdit: boolean;
-  guestOptions: string[];
-  onAssignByName: (seatId: string, guestName: string) => void;
-}) => {
-  const { isOver, setNodeRef } = useDroppable({
-    id: seatId,
-  });
+  draft: string;
+  x: number;
+  y: number;
+  error?: string;
+};
+
+type DraggingGuestState = {
+  guestId: string;
+  guestName: string;
+  x: number;
+  y: number;
+};
+
+const normalizeName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ł/g, "l")
+    .replace(/Ł/g, "L")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const dedupeGuestOptions = (board: SeatingBoard) =>
+  Array.from(
+    new Set([
+      ...board.unassignedGuests.map((guest) => guest.fullName),
+      ...board.tables.flatMap((table) =>
+        table.seats
+          .map((seat) => seat.guestName)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ]),
+  );
+
+const findGuestByName = (board: SeatingBoard, guestName: string) => {
+  const normalizedTarget = normalizeName(guestName);
+  if (!normalizedTarget) {
+    return undefined;
+  }
 
   return (
-    <div
-      ref={setNodeRef}
-      className="rounded-[1.25rem] border border-dashed p-3"
-      style={{ background: isOver ? "#fde9ef" : "white" }}
-    >
-      <p className="text-xs uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
-        {label}
-      </p>
-      <div className="mt-2">
-        {guestId && guestName ? (
-          <DraggableGuest guestId={guestId} name={guestName} />
-        ) : canEdit ? (
-          <div className="space-y-2">
-            <input
-              className="h-10 w-full rounded-xl border px-3 text-sm text-[var(--color-ink)]"
-              list={`guests-${seatId}`}
-              placeholder={emptyLabel}
-              onChange={(event) => onAssignByName(seatId, event.target.value)}
-            />
-            <datalist id={`guests-${seatId}`}>
-              {guestOptions.map((option) => (
-                <option key={option} value={option} />
-              ))}
-            </datalist>
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--color-ink)]">{emptyLabel}</p>
-        )}
-      </div>
-    </div>
+    board.unassignedGuests.find(
+      (guest) => normalizeName(guest.fullName) === normalizedTarget,
+    ) ??
+    board.tables
+      .flatMap((table) =>
+        table.seats
+          .filter((seat) => seat.guestId && seat.guestName)
+          .map((seat) => ({ id: seat.guestId!, fullName: seat.guestName! })),
+      )
+      .find((guest) => normalizeName(guest.fullName) === normalizedTarget)
   );
 };
 
@@ -197,199 +91,511 @@ export const SeatingPlanner = ({
   const { messages } = useLocale();
   const canEdit = canEditSeating(viewerRole);
   const [board, setBoard] = useState(initialBoard);
-  const [layout, setLayout] = useState<"ROUND" | "U_SHAPE">("ROUND");
-  const [tablePositions, setTablePositions] = useState<
-    Record<string, { x: number; y: number }>
-  >(buildDefaultPositions("ROUND", initialBoard.tables));
-  const summary = useSeatingSummary(board);
-  const guestOptions = [
-    ...board.unassignedGuests.map((guest) => guest.fullName),
-    ...board.tables.flatMap(
-      (table) =>
-        table.seats.map((seat) => seat.guestName).filter(Boolean) as string[],
-    ),
-  ];
+  const [tableShape, setTableShape] = useState<TableShape>("ROUND");
+  const [seatEditor, setSeatEditor] = useState<SeatEditorState | null>(null);
+  const [hoveredSlotIndex, setHoveredSlotIndex] = useState<number | null>(null);
+  const [draggingGuest, setDraggingGuest] = useState<DraggingGuestState | null>(
+    null,
+  );
+  const stageRef = useRef<Konva.Stage | null>(null);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const guestOptions = useMemo(() => dedupeGuestOptions(board), [board]);
+  const boardBounds = getBoardBounds();
+  const tableSlots = useMemo(() => getTableSlots(), []);
+  const tablePositions = useMemo(
+    () =>
+      Object.fromEntries(
+        board.tables.map((table, index) => [
+          table.id,
+          tableSlots[index] ?? tableSlots[0]!,
+        ]),
+      ),
+    [board.tables, tableSlots],
+  );
+  const summaryData = useSeatingSummary(board);
+  const getSlotIndexForTablePosition = (position: { x: number; y: number }) =>
+    getNearestSlotIndex(
+      {
+        x: position.x + SEATING_TABLE_BOX.width / 2,
+        y: position.y + SEATING_TABLE_BOX.height / 2,
+      },
+      tableSlots,
+    );
+
+  const refreshBoard = async (body: string) => {
+    const nextBoard = await apiClient<SeatingBoard>("/api/seating", {
+      method: "POST",
+      body,
+    });
+    setBoard(nextBoard);
+    return nextBoard;
+  };
+
+  const commitGuestAssignment = async (seatId: string, guestName: string) => {
     if (!canEdit) {
       return;
     }
 
-    const activeId = String(event.active.id);
-    if (activeId.startsWith("table:")) {
-      const tableId = activeId.replace("table:", "");
-      const nextPosition = (() => {
-        const currentPosition = tablePositions[tableId] ?? { x: 0, y: 0 };
-        return {
-          x: Math.round(currentPosition.x + event.delta.x),
-          y: Math.round(currentPosition.y + event.delta.y),
-        };
-      })();
-      setTablePositions((current) => {
-        const previous = current[tableId] ?? { x: 0, y: 0 };
-        return {
-          ...current,
-          [tableId]: {
-            x: Math.round(previous.x + event.delta.x),
-            y: Math.round(previous.y + event.delta.y),
-          },
-        };
-      });
-      setBoard(
-        await apiClient<SeatingBoard>("/api/seating", {
-          method: "POST",
-          body: JSON.stringify({
-            type: "MOVE_TABLE",
-            tableId,
-            positionX: nextPosition.x,
-            positionY: nextPosition.y,
-          }),
-        }),
+    const guest = findGuestByName(board, guestName);
+    if (!guest) {
+      setSeatEditor((current) =>
+        current
+          ? {
+              ...current,
+              error: "Nie znaleziono gościa o takim imieniu i nazwisku.",
+            }
+          : current,
       );
       return;
     }
 
-    const seatId =
-      event.over && String(event.over.id) !== "unassigned"
-        ? String(event.over.id)
-        : undefined;
-    setBoard(
-      await apiClient<SeatingBoard>("/api/seating", {
-        method: "POST",
-        body: JSON.stringify({
-          type: "ASSIGN_GUEST",
-          guestId: activeId,
-          seatId,
-        }),
+    await refreshBoard(
+      JSON.stringify({
+        type: "ASSIGN_GUEST",
+        guestId: guest.id,
+        seatId,
+      }),
+    );
+    setSeatEditor(null);
+  };
+
+  const clearSeatAssignment = async (guestId?: string) => {
+    if (!canEdit || !guestId) {
+      return;
+    }
+
+    await refreshBoard(
+      JSON.stringify({
+        type: "ASSIGN_GUEST",
+        guestId,
+      }),
+    );
+    setSeatEditor(null);
+  };
+
+  const handleTableMove = async (
+    tableId: string,
+    nextPosition: { x: number; y: number },
+    sourcePosition: { x: number; y: number },
+    eventTarget: { position: (value: { x: number; y: number }) => void },
+  ) => {
+    if (!canEdit) {
+      eventTarget.position(sourcePosition);
+      return;
+    }
+
+    const sourceSlotIndex = getSlotIndexForTablePosition(sourcePosition);
+    const targetSlotIndex = getSlotIndexForTablePosition(nextPosition);
+    const targetPosition = tableSlots[targetSlotIndex] ?? sourcePosition;
+    const collidedTable = board.tables.find(
+      (table) =>
+        table.id !== tableId &&
+        tablePositions[table.id]?.x === targetPosition.x &&
+        tablePositions[table.id]?.y === targetPosition.y,
+    );
+
+    eventTarget.position(sourcePosition);
+    setHoveredSlotIndex(null);
+
+    if (
+      targetSlotIndex === sourceSlotIndex ||
+      !collidedTable ||
+      collidedTable.id === tableId
+    ) {
+      return;
+    }
+
+    await refreshBoard(
+      JSON.stringify({
+        type: "SWAP_TABLES",
+        sourceTableId: tableId,
+        targetTableId: collidedTable.id,
       }),
     );
   };
 
-  const assignByName = async (seatId: string, guestName: string) => {
+  const handleCanvasDrop = async (event: ReactDragEvent<HTMLDivElement>) => {
     if (!canEdit) {
       return;
     }
 
-    const guest =
-      board.unassignedGuests.find(
-        (candidate) => candidate.fullName === guestName,
-      ) ??
-      board.tables
-        .flatMap((table) =>
-          table.seats
-            .filter((seat) => seat.guestId && seat.guestName)
-            .map((seat) => ({ id: seat.guestId!, fullName: seat.guestName! })),
-        )
-        .find((candidate) => candidate.fullName === guestName);
-
-    if (!guest) {
+    event.preventDefault();
+    const guestId = event.dataTransfer.getData("text/guest-id");
+    if (!guestId) {
       return;
     }
 
-    setBoard(
-      await apiClient<SeatingBoard>("/api/seating", {
-        method: "POST",
-        body: JSON.stringify({
-          type: "ASSIGN_GUEST",
-          guestId: guest.id,
-          seatId,
-        }),
+    stageRef.current?.setPointersPositions(event.nativeEvent);
+    const pointer = stageRef.current?.getPointerPosition();
+    if (!pointer) {
+      return;
+    }
+
+    const seat = findSeatAtPoint(
+      board.tables,
+      tablePositions,
+      pointer,
+      tableShape,
+    );
+    if (!seat) {
+      return;
+    }
+
+    await refreshBoard(
+      JSON.stringify({
+        type: "ASSIGN_GUEST",
+        guestId,
+        seatId: seat.id,
+      }),
+    );
+  };
+
+  const handleSeatedGuestDrop = async (
+    guestId: string,
+    guestName: string,
+    position: { x: number; y: number },
+  ) => {
+    if (!canEdit) {
+      return;
+    }
+
+    setDraggingGuest({
+      guestId,
+      guestName,
+      x: position.x,
+      y: position.y,
+    });
+  };
+
+  const handleStagePointerMove = () => {
+    if (!draggingGuest) {
+      return;
+    }
+
+    const pointer = stageRef.current?.getPointerPosition();
+    if (!pointer) {
+      return;
+    }
+
+    setDraggingGuest((current) =>
+      current
+        ? {
+            ...current,
+            x: pointer.x,
+            y: pointer.y,
+          }
+        : current,
+    );
+  };
+
+  const handleStagePointerUp = async () => {
+    if (!draggingGuest) {
+      return;
+    }
+
+    const pointer = stageRef.current?.getPointerPosition();
+    const guestId = draggingGuest.guestId;
+    setDraggingGuest(null);
+    if (!pointer) {
+      return;
+    }
+
+    const seat = findSeatAtPoint(
+      board.tables,
+      tablePositions,
+      pointer,
+      tableShape,
+    );
+    if (!seat) {
+      return;
+    }
+
+    await refreshBoard(
+      JSON.stringify({
+        type: "ASSIGN_GUEST",
+        guestId,
+        seatId: seat.id,
       }),
     );
   };
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[
-            [messages.seating.assigned, summary.assigned],
-            [messages.seating.openSeats, summary.openSeats],
-            [messages.seating.unassigned, summary.unassigned],
-          ].map(([label, value]) => (
-            <Card key={label} className="border-white/70 bg-white/85">
-              <CardContent className="p-5">
-                <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
-                  {label}
-                </p>
-                <p className="mt-2 font-display text-4xl text-[var(--color-ink)]">
-                  {value}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <Card className="border-white/70 bg-white/85">
-          <CardHeader>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
-                {messages.seating.unassignedGuests}
-              </CardTitle>
-              <select
-                className="h-10 rounded-full border border-[var(--color-card-tint)] bg-white px-4 text-sm text-[var(--color-ink)]"
-                value={layout}
-                onChange={(event) => {
-                  const nextLayout = event.target.value as "ROUND" | "U_SHAPE";
-                  setLayout(nextLayout);
-                  setTablePositions(
-                    buildDefaultPositions(nextLayout, board.tables),
-                  );
-                }}
-              >
-                <option value="ROUND">{messages.seating.roundLayout}</option>
-                <option value="U_SHAPE">{messages.seating.uShapeLayout}</option>
-              </select>
-            </div>
-          </CardHeader>
-        </Card>
-        <DroppableUnassigned label={messages.seating.unassignedGuests}>
-          {board.unassignedGuests.map((guest) => (
-            <DraggableGuest
-              key={guest.id}
-              guestId={guest.id}
-              name={guest.fullName}
-            />
-          ))}
-        </DroppableUnassigned>
-        <div className="relative min-h-[900px] rounded-[2rem] border border-white/70 bg-white/35">
-          {board.tables.map((table) => (
-            <DraggableTable
-              key={table.id}
-              tableId={table.id}
-              position={tablePositions[table.id] ?? { x: 0, y: 0 }}
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[
+          [messages.seating.assigned, summaryData.assigned],
+          [messages.seating.openSeats, summaryData.openSeats],
+          [messages.seating.unassigned, summaryData.unassigned],
+        ].map(([label, value]) => (
+          <Card key={label} className="border-white/70 bg-white/85">
+            <CardContent className="p-5">
+              <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
+                {label}
+              </p>
+              <p className="mt-2 font-display text-4xl text-[var(--color-ink)]">
+                {value}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="border-white/70 bg-white/85">
+        <CardHeader>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
+              {messages.seating.unassignedGuests}
+            </CardTitle>
+            <select
+              className="h-10 rounded-full border border-[var(--color-card-tint)] bg-white px-4 text-sm text-[var(--color-ink)]"
+              value={tableShape}
+              onChange={(event) => {
+                setTableShape(event.target.value as TableShape);
+                setSeatEditor(null);
+              }}
             >
-              <Card className="border-white/70 bg-white/85">
-                <CardHeader>
-                  <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
-                    {table.name.replace("STO-0-", "STOŁ ")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent
-                  className={
-                    layout === "ROUND"
-                      ? "grid gap-3 rounded-[1.5rem] bg-[var(--color-card-tint)]/40 p-4 sm:grid-cols-2"
-                      : "grid gap-3 rounded-[1.5rem] border-[18px] border-[var(--color-card-tint)]/70 p-4 sm:grid-cols-3"
+              <option value="ROUND">{messages.seating.roundLayout}</option>
+              <option value="RECTANGULAR">
+                {messages.seating.uShapeLayout}
+              </option>
+            </select>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <Card className="border-white/70 bg-white/85">
+        <CardHeader>
+          <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
+            {messages.seating.unassignedGuests}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3">
+          {board.unassignedGuests.map((guest) => (
+            <button
+              key={guest.id}
+              type="button"
+              draggable={canEdit}
+              onDragStart={(event) =>
+                event.dataTransfer.setData("text/guest-id", guest.id)
+              }
+              className="rounded-full bg-[var(--color-dusty-rose)] px-4 py-2 text-sm text-white"
+            >
+              {guest.fullName}
+            </button>
+          ))}
+        </CardContent>
+      </Card>
+
+      <div className="overflow-auto rounded-[2rem] border border-white/70 bg-white/35 p-3">
+        <div
+          className="relative overflow-hidden rounded-[1.6rem] bg-[linear-gradient(180deg,_rgba(255,251,247,0.96),_rgba(247,236,233,0.9))]"
+          style={{
+            width: boardBounds.width,
+            height: boardBounds.height,
+          }}
+          onDragOver={(event) => {
+            if (canEdit) {
+              event.preventDefault();
+            }
+          }}
+          onDrop={handleCanvasDrop}
+        >
+          <Stage
+            ref={stageRef}
+            width={boardBounds.width}
+            height={boardBounds.height}
+            onMouseMove={handleStagePointerMove}
+            onTouchMove={handleStagePointerMove}
+            onMouseUp={() => {
+              void handleStagePointerUp();
+            }}
+            onTouchEnd={() => {
+              void handleStagePointerUp();
+            }}
+          >
+            <Layer>
+              <Rect
+                x={0}
+                y={0}
+                width={boardBounds.width}
+                height={boardBounds.height}
+                fill="#fffaf7"
+              />
+              {tableSlots.map((slot, index) => (
+                <Rect
+                  key={`slot-${slot.x}-${slot.y}`}
+                  x={slot.x}
+                  y={slot.y}
+                  width={SEATING_TABLE_BOX.width}
+                  height={SEATING_TABLE_BOX.height}
+                  cornerRadius={28}
+                  stroke={hoveredSlotIndex === index ? "#c98b92" : "#ead3d8"}
+                  strokeWidth={hoveredSlotIndex === index ? 4 : 2}
+                  dash={hoveredSlotIndex === index ? [18, 8] : [12, 10]}
+                  fill={
+                    hoveredSlotIndex === index
+                      ? "rgba(216,155,174,0.22)"
+                      : index % 2 === 0
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(253,233,239,0.08)"
+                  }
+                />
+              ))}
+              <Rect
+                x={SEATING_STAGE_PADDING / 2}
+                y={SEATING_STAGE_PADDING / 2}
+                width={boardBounds.width - SEATING_STAGE_PADDING}
+                height={boardBounds.height - SEATING_STAGE_PADDING}
+                cornerRadius={28}
+                stroke="#ead3d8"
+                strokeWidth={2}
+                dash={[12, 10]}
+              />
+              {board.tables.map((table, index) => (
+                <SeatingCanvasTable
+                  key={table.id}
+                  table={table}
+                  position={
+                    tablePositions[table.id] ??
+                    tableSlots[index] ?? { x: 0, y: 0 }
+                  }
+                  shape={tableShape}
+                  canEdit={canEdit}
+                  allowTableDrag={!draggingGuest}
+                  onDragStart={() => {
+                    setSeatEditor(null);
+                    setHoveredSlotIndex(index);
+                  }}
+                  onDragMove={(position) =>
+                    setHoveredSlotIndex(getSlotIndexForTablePosition(position))
+                  }
+                  onMove={handleTableMove}
+                  onSeatClick={(seatId, position, guestName, guestId) =>
+                    setSeatEditor({
+                      seatId,
+                      guestId,
+                      draft: guestName ?? "",
+                      x: Math.min(position.x + 18, boardBounds.width - 320),
+                      y: Math.min(position.y + 18, boardBounds.height - 160),
+                    })
+                  }
+                  onGuestDrop={handleSeatedGuestDrop}
+                />
+              ))}
+              {draggingGuest ? (
+                <Group
+                  x={draggingGuest.x}
+                  y={draggingGuest.y}
+                  listening={false}
+                >
+                  <Circle
+                    x={0}
+                    y={0}
+                    radius={26}
+                    fill="#d89bae"
+                    stroke="#b66f87"
+                    strokeWidth={2}
+                    opacity={0.92}
+                  />
+                  <Text
+                    x={-76}
+                    y={34}
+                    width={152}
+                    align="center"
+                    text={draggingGuest.guestName}
+                    fill="#5f4450"
+                    fontSize={13}
+                  />
+                </Group>
+              ) : null}
+            </Layer>
+          </Stage>
+
+          {seatEditor ? (
+            <div
+              className="absolute z-10 w-72 rounded-[1.25rem] border border-white/80 bg-white/95 p-3 shadow-[0_18px_50px_rgba(79,51,64,0.18)] backdrop-blur"
+              style={{
+                left: seatEditor.x,
+                top: seatEditor.y,
+              }}
+            >
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-dusty-rose)]">
+                {messages.seating.dropGuestHere}
+              </p>
+              <input
+                autoFocus
+                list={`guests-${seatEditor.seatId}`}
+                value={seatEditor.draft}
+                onChange={(event) =>
+                  setSeatEditor((current) =>
+                    current
+                      ? {
+                          ...current,
+                          draft: event.target.value,
+                          error: undefined,
+                        }
+                      : current,
+                  )
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void commitGuestAssignment(
+                      seatEditor.seatId,
+                      seatEditor.draft,
+                    );
+                  }
+                  if (event.key === "Escape") {
+                    setSeatEditor(null);
+                  }
+                }}
+                placeholder={messages.seating.dropGuestHere}
+                className="mt-2 h-10 w-full rounded-xl border px-3 text-sm text-[var(--color-ink)]"
+              />
+              <datalist id={`guests-${seatEditor.seatId}`}>
+                {guestOptions.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+              {seatEditor.error ? (
+                <p className="mt-2 text-sm text-[#b14c65]">
+                  {seatEditor.error}
+                </p>
+              ) : null}
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-full bg-[var(--color-dusty-rose)] px-4 py-2 text-sm text-white"
+                  onClick={() =>
+                    void commitGuestAssignment(
+                      seatEditor.seatId,
+                      seatEditor.draft,
+                    )
                   }
                 >
-                  {table.seats.map((seat) => (
-                    <DroppableSeat
-                      key={seat.id}
-                      seatId={seat.id}
-                      label={seat.label}
-                      guestName={seat.guestName}
-                      guestId={seat.guestId}
-                      emptyLabel={messages.seating.dropGuestHere}
-                      canEdit={canEdit}
-                      guestOptions={guestOptions}
-                      onAssignByName={assignByName}
-                    />
-                  ))}
-                </CardContent>
-              </Card>
-            </DraggableTable>
-          ))}
+                  Zapisz
+                </button>
+                {seatEditor.guestId ? (
+                  <button
+                    type="button"
+                    className="rounded-full border border-[var(--color-card-tint)] px-4 py-2 text-sm text-[var(--color-ink)]"
+                    onClick={() => void clearSeatAssignment(seatEditor.guestId)}
+                  >
+                    Usuń
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="rounded-full border border-[var(--color-card-tint)] px-4 py-2 text-sm text-[var(--color-ink)]"
+                  onClick={() => setSeatEditor(null)}
+                >
+                  Zamknij
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
-    </DndContext>
+    </div>
   );
 };

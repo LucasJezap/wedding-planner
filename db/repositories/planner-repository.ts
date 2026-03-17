@@ -152,6 +152,10 @@ export type PlannerRepository = {
   ): Promise<TimelineEventRecord>;
   deleteTimelineEvent(eventId: string): Promise<void>;
   assignGuestToSeat(guestId: string, seatId?: string): Promise<void>;
+  swapTableAssignments(
+    sourceTableId: string,
+    targetTableId: string,
+  ): Promise<void>;
   updateTablePosition(
     tableId: string,
     position: { positionX: number; positionY: number },

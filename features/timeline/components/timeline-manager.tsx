@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { useLocale } from "@/components/locale-provider";
@@ -26,6 +26,7 @@ export const TimelineManager = ({
   const [events, setEvents] = useState(initialEvents);
   const [selectedEvent, setSelectedEvent] =
     useState<TimelineEventRecord | null>(null);
+  const formRef = useRef<HTMLDivElement | null>(null);
   const agenda = useTimelineAgenda(events);
   const { register, handleSubmit, reset } = useForm<TimelineEventInput>({
     defaultValues: {
@@ -48,10 +49,25 @@ export const TimelineManager = ({
     });
   };
 
+  const handleEdit = (event: TimelineEventRecord) => {
+    setSelectedEvent(event);
+    reset({
+      title: event.title,
+      description: event.description,
+      startsAt: toDateTimeLocalValue(event.startsAt),
+      location: event.location,
+      visibleToGuests: event.visibleToGuests,
+    });
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
       {canEditTimeline(viewerRole) ? (
-        <Card className="border-white/70 bg-white/85">
+        <Card
+          className="scroll-mt-40 border-white/70 bg-white/85"
+          ref={formRef}
+        >
           <CardHeader>
             <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
               {selectedEvent
@@ -136,19 +152,13 @@ export const TimelineManager = ({
         {agenda.map((event) => (
           <Card
             key={event.id}
-            className="border-white/70 bg-white/85"
+            id={`timeline-${event.id}`}
+            className="scroll-mt-40 border-white/70 bg-white/85"
             onDoubleClick={() => {
               if (!canEditTimeline(viewerRole)) {
                 return;
               }
-              setSelectedEvent(event);
-              reset({
-                title: event.title,
-                description: event.description,
-                startsAt: toDateTimeLocalValue(event.startsAt),
-                location: event.location,
-                visibleToGuests: event.visibleToGuests,
-              });
+              handleEdit(event);
             }}
           >
             <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -170,19 +180,7 @@ export const TimelineManager = ({
               </div>
               {canEditTimeline(viewerRole) ? (
                 <div className="flex flex-wrap gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedEvent(event);
-                      reset({
-                        title: event.title,
-                        description: event.description,
-                        startsAt: toDateTimeLocalValue(event.startsAt),
-                        location: event.location,
-                        visibleToGuests: event.visibleToGuests,
-                      });
-                    }}
-                  >
+                  <Button variant="outline" onClick={() => handleEdit(event)}>
                     {messages.guests.editButton}
                   </Button>
                   <Button

@@ -128,6 +128,7 @@ export type PlannerRepository = {
   createBudgetCategory(
     category: Omit<BudgetCategoryRecord, "id" | "createdAt" | "updatedAt">,
   ): Promise<BudgetCategoryRecord>;
+  deleteBudgetCategory(categoryId: string): Promise<void>;
   createExpense(
     expense: Omit<ExpenseRecord, "id" | "createdAt" | "updatedAt">,
   ): Promise<ExpenseRecord>;

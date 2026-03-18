@@ -7,6 +7,7 @@ import {
   createBudgetCategory,
   createExpense,
   createPayment,
+  deleteBudgetCategory,
   deleteExpense,
   getBudgetOverview,
   updateBudgetCategory,
@@ -16,6 +17,8 @@ import {
 export const getBudgetHandler = async () => getBudgetOverview();
 export const createBudgetCategoryHandler = async (input: BudgetCategoryInput) =>
   createBudgetCategory(input);
+export const deleteBudgetCategoryHandler = async (categoryId: string) =>
+  deleteBudgetCategory(categoryId);
 export const updateBudgetCategoryHandler = async (
   categoryId: string,
   input: BudgetCategoryInput,

@@ -114,7 +114,7 @@ const dictionaries = {
       },
       guests: {
         eyebrow: "Goście",
-        title: "Strona",
+        title: "Stwórz listę swoich gości",
         description:
           "Wyszukuj, segmentuj i aktualizuj każdy rekord gościa wraz z kontaktem, dietą, RSVP i przypisaniem do stołu.",
       },
@@ -177,6 +177,7 @@ const dictionaries = {
       expenseRemaining: (value: string) => `Pozostało do domknięcia: ${value}.`,
       filters: {
         all: "Wszystkie",
+        planned: "Plan",
         remaining: "Z pozostałą kwotą",
         paid: "Tylko opłacone",
         top: "Największe pozycje",
@@ -391,6 +392,21 @@ const dictionaries = {
         COUPLE: "Państwo młodzi",
         WITNESSES: "Świadkowie",
       },
+      vendorCategoryType: {
+        VENUE: "Sala",
+        CATERING: "Catering i bar",
+        MUSIC: "Muzyka",
+        PHOTO: "Foto i wideo",
+        FLORAL: "Florystyka",
+        WEDDING_PLANNER: "Wedding planner",
+        CONTENT_CREATOR: "Content creator",
+        MAKEUP: "Makijaż",
+        HAIR: "Fryzjer",
+        PRIEST: "Ksiądz",
+        ATTIRE: "Stroje",
+        TRANSPORT: "Transport",
+        OTHER: "Inne",
+      },
     },
   },
   en: {
@@ -500,7 +516,7 @@ const dictionaries = {
       },
       guests: {
         eyebrow: "Guests",
-        title: "Side",
+        title: "Build your guest list",
         description:
           "Search, segment, and update every guest record with contact details, dietary notes, RSVP status, and seating context.",
       },
@@ -562,6 +578,7 @@ const dictionaries = {
       expenseRemaining: (value: string) => `Still remaining: ${value}.`,
       filters: {
         all: "All",
+        planned: "Planned",
         remaining: "Still open",
         paid: "Paid only",
         top: "Largest items",
@@ -774,6 +791,21 @@ const dictionaries = {
         BRIDE: "Bride",
         COUPLE: "Couple",
         WITNESSES: "Witnesses",
+      },
+      vendorCategoryType: {
+        VENUE: "Venue",
+        CATERING: "Catering and bar",
+        MUSIC: "Music",
+        PHOTO: "Photo and video",
+        FLORAL: "Floral",
+        WEDDING_PLANNER: "Wedding planner",
+        CONTENT_CREATOR: "Content creator",
+        MAKEUP: "Makeup",
+        HAIR: "Hair",
+        PRIEST: "Priest",
+        ATTIRE: "Attire",
+        TRANSPORT: "Transport",
+        OTHER: "Other",
       },
     },
   },

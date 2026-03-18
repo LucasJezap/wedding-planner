@@ -2,6 +2,7 @@ import {
   createBudgetCategory,
   createPayment,
   createExpense,
+  deleteBudgetCategory,
   deleteExpense,
   getBudgetOverview,
   updateBudgetCategory,
@@ -62,6 +63,13 @@ describe("budget-service", () => {
     expect(
       (await getBudgetOverview()).expenses.find(
         (item) => item.id === createdExpense.id,
+      ),
+    ).toBeUndefined();
+
+    await deleteBudgetCategory(createdCategory.id);
+    expect(
+      (await getBudgetOverview()).categories.find(
+        (item) => item.id === createdCategory.id,
       ),
     ).toBeUndefined();
   });

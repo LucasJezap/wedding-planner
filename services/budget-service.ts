@@ -111,6 +111,13 @@ export const createBudgetCategory = async (
   )!;
 };
 
+export const deleteBudgetCategory = async (
+  categoryId: string,
+): Promise<void> => {
+  const repository = getRepository();
+  await repository.deleteBudgetCategory(categoryId);
+};
+
 export const createExpense = async (
   input: ExpenseInput,
 ): Promise<ExpenseView> => {

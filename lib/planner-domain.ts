@@ -242,6 +242,7 @@ export type GuestView = GuestRecord & {
 
 export type VendorView = VendorRecord & {
   categoryName: string;
+  categoryType: VendorCategoryType;
   contactEmail: string;
   contactPhone: string;
   notes: string;
@@ -301,6 +302,7 @@ export type DashboardData = {
     notes: string;
   }>;
   expenseHighlights: Array<{
+    id: string;
     name: string;
     planned: number;
     actual: number;
@@ -358,5 +360,20 @@ export const TASK_ASSIGNEES: TaskAssignee[] = [
 ];
 export const GUEST_SIDES: GuestSide[] = ["BRIDE", "GROOM", "FAMILY", "FRIENDS"];
 export const RSVP_STATUSES: RsvpStatus[] = ["PENDING", "ATTENDING", "DECLINED"];
+export const VENDOR_CATEGORY_TYPES: VendorCategoryType[] = [
+  "VENUE",
+  "CATERING",
+  "MUSIC",
+  "PHOTO",
+  "FLORAL",
+  "WEDDING_PLANNER",
+  "CONTENT_CREATOR",
+  "MAKEUP",
+  "HAIR",
+  "PRIEST",
+  "ATTIRE",
+  "TRANSPORT",
+  "OTHER",
+];
 export const USER_ROLES: UserRole[] = ["ADMIN", "WITNESS", "READ_ONLY"];
 export const PAYMENT_COVERAGES: PaymentCoverage[] = ["FULL", "HALF"];

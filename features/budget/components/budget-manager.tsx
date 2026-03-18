@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -14,9 +14,9 @@ import type {
   ExpenseInput,
   PaymentInput,
 } from "@/features/budget/types/budget";
-import type { BudgetCategoryView, ExpenseView } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/format";
+import type { BudgetCategoryView, ExpenseView } from "@/lib/planner-domain";
 
 const categoryPalette = [
   "#D89BAE",
@@ -77,7 +77,13 @@ export const BudgetManager = ({
   const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(
     null,
   );
+  const [categoryChartMetric, setCategoryChartMetric] = useState<
+    "plannedAmount" | "paidAmount" | "remainingAmount"
+  >("plannedAmount");
+  const categoryFormRef = useRef<HTMLDivElement | null>(null);
+  const expenseFormRef = useRef<HTMLDivElement | null>(null);
   const totals = useBudgetTotals(categories, expenses);
+
   const refreshBudget = async () => {
     const refreshed = await apiClient<{
       categories: BudgetCategoryView[];
@@ -86,6 +92,7 @@ export const BudgetManager = ({
     setCategories(refreshed.categories);
     setExpenses(refreshed.expenses);
   };
+
   const {
     register: registerCategory,
     handleSubmit: handleCategorySubmit,
@@ -149,6 +156,37 @@ export const BudgetManager = ({
     });
   };
 
+  const handleEditCategory = (category: BudgetCategoryView) => {
+    setSelectedCategory(category);
+    resetCategory({
+      name: category.name,
+      plannedAmount: category.plannedAmount,
+      color: category.color,
+      notes: category.notes,
+    });
+    setSelectedCategoryColor(category.color);
+    categoryFormRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const handleEditExpense = (expense: ExpenseView) => {
+    setSelectedExpense(expense);
+    resetExpense({
+      categoryId: expense.categoryId,
+      name: expense.name,
+      estimateMin: expense.estimateMin,
+      estimateMax: expense.estimateMax,
+      actualAmount: expense.actualAmount,
+      notes: expense.notes,
+    });
+    expenseFormRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
       <div className="space-y-6">
@@ -189,7 +227,10 @@ export const BudgetManager = ({
           </CardContent>
         </Card>
 
-        <Card className="border-white/70 bg-white/85">
+        <Card
+          className="scroll-mt-40 border-white/70 bg-white/85"
+          ref={categoryFormRef}
+        >
           <CardHeader>
             <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
               {selectedCategory
@@ -293,20 +334,44 @@ export const BudgetManager = ({
                     : messages.budget.createCategory}
                 </Button>
                 {selectedCategory ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={resetCategoryForm}
-                  >
-                    {messages.guests.cancel}
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={resetCategoryForm}
+                    >
+                      {messages.guests.cancel}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={async () => {
+                        if (!window.confirm(messages.common.confirmDelete)) {
+                          return;
+                        }
+                        await apiClient<{ categoryId: string }>(
+                          `/api/budget/categories/${selectedCategory.id}`,
+                          {
+                            method: "DELETE",
+                          },
+                        );
+                        await refreshBudget();
+                        resetCategoryForm();
+                      }}
+                    >
+                      {messages.guests.delete}
+                    </Button>
+                  </>
                 ) : null}
               </div>
             </form>
           </CardContent>
         </Card>
 
-        <Card className="border-white/70 bg-white/85">
+        <Card
+          className="scroll-mt-40 border-white/70 bg-white/85"
+          ref={expenseFormRef}
+        >
           <CardHeader>
             <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
               {selectedExpense
@@ -412,16 +477,37 @@ export const BudgetManager = ({
       <div className="space-y-6">
         <Card className="border-white/70 bg-white/85">
           <CardHeader>
-            <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
-              {messages.budget.categoryMix}
-            </CardTitle>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
+                {messages.budget.categoryMix}
+              </CardTitle>
+              <select
+                className="h-10 rounded-full border border-[var(--color-card-tint)] bg-white px-4 text-sm text-[var(--color-ink)]"
+                value={categoryChartMetric}
+                onChange={(event) =>
+                  setCategoryChartMetric(
+                    event.target.value as
+                      | "plannedAmount"
+                      | "paidAmount"
+                      | "remainingAmount",
+                  )
+                }
+                aria-label={messages.dashboard.chartFilter}
+              >
+                <option value="plannedAmount">{messages.budget.plan}</option>
+                <option value="paidAmount">{messages.budget.paid}</option>
+                <option value="remainingAmount">
+                  {messages.budget.remaining}
+                </option>
+              </select>
+            </div>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={categories}
-                  dataKey="paidAmount"
+                  dataKey={categoryChartMetric}
                   nameKey="name"
                   outerRadius={100}
                 >
@@ -439,38 +525,47 @@ export const BudgetManager = ({
             </ResponsiveContainer>
           </CardContent>
           <CardContent className="pt-0">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {categories.map((category) => (
-                <div
-                  key={category.id}
-                  title={`${category.name} • ${messages.budget.plan}: ${formatCurrency(
-                    category.plannedAmount,
-                    locale,
-                  )} • ${messages.budget.paid}: ${formatCurrency(
-                    category.paidAmount,
-                    locale,
-                  )}${category.notes ? ` • ${category.notes}` : ""}`}
-                  className="flex items-center justify-between rounded-[1rem] border border-[var(--color-card-tint)]/70 bg-[var(--color-card-tint)]/30 px-3 py-2 text-sm text-[var(--color-ink)]"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-3.5 w-3.5 rounded-full"
-                      style={{ backgroundColor: category.color }}
-                    />
-                    <span>{category.name}</span>
+            <details className="rounded-[1.25rem] border border-[var(--color-card-tint)]/70 bg-[var(--color-card-tint)]/20 px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-medium text-[var(--color-ink)]">
+                Legenda kategorii
+              </summary>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {categories.map((category) => (
+                  <div
+                    key={category.id}
+                    title={`${category.name} • ${messages.budget.plan}: ${formatCurrency(
+                      category.plannedAmount,
+                      locale,
+                    )} • ${messages.budget.paid}: ${formatCurrency(
+                      category.paidAmount,
+                      locale,
+                    )}${category.notes ? ` • ${category.notes}` : ""}`}
+                    className="flex items-center justify-between rounded-[1rem] border border-[var(--color-card-tint)]/70 bg-[var(--color-card-tint)]/30 px-3 py-2 text-sm text-[var(--color-ink)]"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-3.5 w-3.5 rounded-full"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <span>{category.name}</span>
+                    </div>
+                    <span className="text-xs text-[var(--color-muted-copy)]">
+                      {formatCurrency(category[categoryChartMetric], locale)}
+                    </span>
                   </div>
-                  <span className="text-xs text-[var(--color-muted-copy)]">
-                    {formatCurrency(category.paidAmount, locale)}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </details>
           </CardContent>
         </Card>
 
         <div className="grid gap-4">
           {categories.map((category) => (
-            <Card key={category.id} className="border-white/70 bg-white/85">
+            <Card
+              key={category.id}
+              id={`budget-category-${category.id}`}
+              className="scroll-mt-40 border-white/70 bg-white/85"
+            >
               <CardContent className="flex flex-col gap-4 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -489,21 +584,34 @@ export const BudgetManager = ({
                       </p>
                     ) : null}
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedCategory(category);
-                      resetCategory({
-                        name: category.name,
-                        plannedAmount: category.plannedAmount,
-                        color: category.color,
-                        notes: category.notes,
-                      });
-                      setSelectedCategoryColor(category.color);
-                    }}
-                  >
-                    {messages.guests.editButton}
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleEditCategory(category)}
+                    >
+                      {messages.guests.editButton}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        if (!window.confirm(messages.common.confirmDelete)) {
+                          return;
+                        }
+                        await apiClient<{ categoryId: string }>(
+                          `/api/budget/categories/${category.id}`,
+                          {
+                            method: "DELETE",
+                          },
+                        );
+                        await refreshBudget();
+                        if (selectedCategory?.id === category.id) {
+                          resetCategoryForm();
+                        }
+                      }}
+                    >
+                      {messages.guests.delete}
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
@@ -538,7 +646,11 @@ export const BudgetManager = ({
 
         <div className="grid gap-4">
           {expenses.map((expense) => (
-            <Card key={expense.id} className="border-white/70 bg-white/85">
+            <Card
+              key={expense.id}
+              id={`expense-${expense.id}`}
+              className="scroll-mt-40 border-white/70 bg-white/85"
+            >
               <CardContent className="space-y-4 p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -563,17 +675,7 @@ export const BudgetManager = ({
                   <div className="flex gap-3">
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        setSelectedExpense(expense);
-                        resetExpense({
-                          categoryId: expense.categoryId,
-                          name: expense.name,
-                          estimateMin: expense.estimateMin,
-                          estimateMax: expense.estimateMax,
-                          actualAmount: expense.actualAmount,
-                          notes: expense.notes,
-                        });
-                      }}
+                      onClick={() => handleEditExpense(expense)}
                     >
                       {messages.guests.editButton}
                     </Button>

@@ -27,6 +27,7 @@ const buildVendors = async (): Promise<VendorView[]> => {
       return {
         ...vendor,
         categoryName: category?.name ?? "Uncategorized",
+        categoryType: category?.type ?? "OTHER",
         contactEmail: contact?.email ?? "",
         contactPhone: contact?.phone ?? "",
         notes: note?.content ?? "",

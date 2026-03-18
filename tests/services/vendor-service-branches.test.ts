@@ -41,6 +41,7 @@ describe("vendor-service branch coverage", () => {
       updateTask: vi.fn(),
       deleteTask: vi.fn(),
       updateBudgetCategory: vi.fn(),
+      deleteBudgetCategory: vi.fn(),
       createExpense: vi.fn(),
       updateExpense: vi.fn(),
       deleteExpense: vi.fn(),
@@ -54,6 +55,7 @@ describe("vendor-service branch coverage", () => {
     const vendors = await listVendors();
     expect(vendors[0]).toMatchObject({
       categoryName: "Uncategorized",
+      categoryType: "OTHER",
       contactEmail: "",
       contactPhone: "",
       notes: "",

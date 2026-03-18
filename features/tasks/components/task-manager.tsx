@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { useLocale } from "@/components/locale-provider";
@@ -46,6 +46,7 @@ export const TaskManager = ({
     "ALL" | TaskInput["assignee"]
   >("ALL");
   const buckets = useTaskBuckets(tasks);
+  const formRef = useRef<HTMLDivElement | null>(null);
   const emptyTaskForm: TaskInput = {
     title: "",
     description: "",
@@ -102,10 +103,27 @@ export const TaskManager = ({
     return true;
   });
 
+  const handleEdit = (task: TaskRecord & { notes: string }) => {
+    setSelectedTask(task);
+    reset({
+      title: task.title,
+      description: task.description,
+      dueDate: toDateTimeLocalValue(task.dueDate),
+      priority: task.priority,
+      status: task.status,
+      assignee: task.assignee,
+      notes: task.notes,
+    });
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
       {canCreateTasks(viewerRole) ? (
-        <Card className="border-white/70 bg-white/85">
+        <Card
+          className="scroll-mt-40 border-white/70 bg-white/85"
+          ref={formRef}
+        >
           <CardHeader>
             <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
               {selectedTask ? messages.tasks.edit : messages.tasks.newTask}
@@ -272,21 +290,13 @@ export const TaskManager = ({
         {visibleTasks.map((task) => (
           <Card
             key={task.id}
-            className="border-white/70 bg-white/85"
+            id={`task-${task.id}`}
+            className="scroll-mt-40 border-white/70 bg-white/85"
             onDoubleClick={() => {
               if (!canEditTasks(viewerRole)) {
                 return;
               }
-              setSelectedTask(task);
-              reset({
-                title: task.title,
-                description: task.description,
-                dueDate: toDateTimeLocalValue(task.dueDate),
-                priority: task.priority,
-                status: task.status,
-                assignee: task.assignee,
-                notes: task.notes,
-              });
+              handleEdit(task);
             }}
           >
             <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -346,21 +356,7 @@ export const TaskManager = ({
               <div className="flex gap-3">
                 {canEditTasks(viewerRole) ? (
                   <>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedTask(task);
-                        reset({
-                          title: task.title,
-                          description: task.description,
-                          dueDate: toDateTimeLocalValue(task.dueDate),
-                          priority: task.priority,
-                          status: task.status,
-                          assignee: task.assignee,
-                          notes: task.notes,
-                        });
-                      }}
-                    >
+                    <Button variant="outline" onClick={() => handleEdit(task)}>
                       {messages.guests.editButton}
                     </Button>
                     <Button

@@ -328,6 +328,20 @@ export const memoryPlannerRepository: PlannerRepository = {
     state.budgetCategories.push(created);
     return created;
   },
+  async deleteBudgetCategory(categoryId) {
+    const expenseIds = state.expenses
+      .filter((expense) => expense.categoryId === categoryId)
+      .map((expense) => expense.id);
+    state.budgetCategories = state.budgetCategories.filter(
+      (category) => category.id !== categoryId,
+    );
+    state.expenses = state.expenses.filter(
+      (expense) => expense.categoryId !== categoryId,
+    );
+    state.payments = state.payments.filter(
+      (payment) => !expenseIds.includes(payment.expenseId),
+    );
+  },
   async createExpense(expense) {
     const createdExpense: ExpenseRecord = {
       ...expense,

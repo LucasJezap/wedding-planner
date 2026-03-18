@@ -9,12 +9,15 @@ describe("useVendorFilters", () => {
     const vendors = seed.vendors.map((vendor) => ({
       ...vendor,
       categoryName: "Venue",
+      categoryType: "VENUE" as const,
       contactEmail: "",
       contactPhone: "",
       notes: "",
     }));
 
-    const { result } = renderHook(() => useVendorFilters(vendors, "Ivory"));
+    const { result } = renderHook(() =>
+      useVendorFilters(vendors, "Ivory", "ALL"),
+    );
     expect(result.current).toHaveLength(1);
   });
 });

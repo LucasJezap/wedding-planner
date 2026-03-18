@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { useLocale } from "@/components/locale-provider";
@@ -12,9 +12,11 @@ import type { VendorInput } from "@/features/vendors/types/vendor";
 import { canEditVendors } from "@/lib/access-control";
 import type {
   UserRole,
+  VendorCategoryType,
   VendorCategoryRecord,
   VendorView,
 } from "@/lib/planner-domain";
+import { VENDOR_CATEGORY_TYPES } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/format";
 
@@ -34,7 +36,11 @@ export const VendorManager = ({
   const [vendors, setVendors] = useState(initialVendors);
   const [selectedVendor, setSelectedVendor] = useState<VendorView | null>(null);
   const [search, setSearch] = useState("");
-  const filteredVendors = useVendorFilters(vendors, search);
+  const [categoryType, setCategoryType] = useState<"ALL" | VendorCategoryType>(
+    "ALL",
+  );
+  const formRef = useRef<HTMLDivElement | null>(null);
+  const filteredVendors = useVendorFilters(vendors, search, categoryType);
   const { register, handleSubmit, reset } = useForm<VendorInput>({
     defaultValues: {
       name: "",
@@ -82,10 +88,26 @@ export const VendorManager = ({
     });
   });
 
+  const handleEdit = (vendor: VendorView) => {
+    setSelectedVendor(vendor);
+    reset({
+      name: vendor.name,
+      categoryId: vendor.categoryId,
+      cost: vendor.cost,
+      contactEmail: vendor.contactEmail,
+      contactPhone: vendor.contactPhone,
+      notes: vendor.notes,
+    });
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
       {canEdit ? (
-        <Card className="border-white/70 bg-white/85">
+        <Card
+          className="scroll-mt-40 border-white/70 bg-white/85"
+          ref={formRef}
+        >
           <CardHeader>
             <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
               {selectedVendor ? messages.vendors.edit : messages.vendors.add}
@@ -159,29 +181,39 @@ export const VendorManager = ({
         </Card>
       ) : null}
       <div className="space-y-4">
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={messages.vendors.search}
-        />
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={messages.vendors.search}
+          />
+          <select
+            className="h-10 rounded-xl border px-3"
+            value={categoryType}
+            onChange={(event) =>
+              setCategoryType(event.target.value as "ALL" | VendorCategoryType)
+            }
+            aria-label={messages.vendors.category}
+          >
+            <option value="ALL">{messages.dashboard.filters.all}</option>
+            {VENDOR_CATEGORY_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {messages.enums.vendorCategoryType[type]}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           {filteredVendors.map((vendor) => (
             <Card
               key={vendor.id}
-              className="border-white/70 bg-white/85"
+              id={`vendor-${vendor.id}`}
+              className="scroll-mt-40 border-white/70 bg-white/85"
               onDoubleClick={() => {
                 if (!canEdit) {
                   return;
                 }
-                setSelectedVendor(vendor);
-                reset({
-                  name: vendor.name,
-                  categoryId: vendor.categoryId,
-                  cost: vendor.cost,
-                  contactEmail: vendor.contactEmail,
-                  contactPhone: vendor.contactPhone,
-                  notes: vendor.notes,
-                });
+                handleEdit(vendor);
               }}
             >
               <CardContent className="space-y-3 p-5">
@@ -211,17 +243,7 @@ export const VendorManager = ({
                   <div className="flex gap-3">
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        setSelectedVendor(vendor);
-                        reset({
-                          name: vendor.name,
-                          categoryId: vendor.categoryId,
-                          cost: vendor.cost,
-                          contactEmail: vendor.contactEmail,
-                          contactPhone: vendor.contactPhone,
-                          notes: vendor.notes,
-                        });
-                      }}
+                      onClick={() => handleEdit(vendor)}
                     >
                       {messages.vendors.editButton}
                     </Button>

@@ -1,5 +1,6 @@
 "use client";
 
+import JSZip from "jszip";
 import { useState } from "react";
 import * as XLSX from "xlsx";
 
@@ -20,6 +21,7 @@ import type { GuestView } from "@/lib/planner-domain";
 type PreviewRow = Record<string, string>;
 
 const TEMPLATE_ROW_COUNT = 200;
+const VALIDATION_SHEET_NAME = "_Walidacje";
 
 const templateColumnWidths = [
   { wch: 16 },
@@ -43,6 +45,14 @@ const templateLegendRows = [
   ["RSVP", "Oczekuje, Potwierdzono, Odmowa"],
   ["Płatność", "100%, 50%"],
   ["Pola typu checkbox", "☑ = Tak, ☐ = Nie"],
+];
+
+const validationSheetRows = [
+  ["Strona", "Dieta", "RSVP", "Płatność", "Checkbox"],
+  ["Panna Młoda", "Brak", "Oczekuje", "100%", "☐"],
+  ["Pan Młody", "Wege", "Potwierdzono", "50%", "☑"],
+  ["Rodzina", "Wegan", "Odmowa", "", ""],
+  ["Przyjaciele", "", "", "", ""],
 ];
 
 const mappingEntries = Object.entries(IMPORT_FIELD_ALIASES) as Array<
@@ -89,7 +99,7 @@ const buildDelimitedTemplate = (separator: "," | "\t") => {
   ].join("\n");
 };
 
-const buildWorkbookBuffer = (bookType: "xlsx" | "xls") => {
+const buildWorkbook = () => {
   const workbook = XLSX.utils.book_new();
   const guestRows = [
     [...IMPORT_TEMPLATE_HEADERS],
@@ -103,10 +113,73 @@ const buildWorkbookBuffer = (bookType: "xlsx" | "xls") => {
   const legendSheet = XLSX.utils.aoa_to_sheet(templateLegendRows);
   legendSheet["!cols"] = [{ wch: 24 }, { wch: 48 }];
 
+  const validationSheet = XLSX.utils.aoa_to_sheet(validationSheetRows);
+  validationSheet["!cols"] = Array.from({ length: 5 }, () => ({ wch: 18 }));
+
   XLSX.utils.book_append_sheet(workbook, guestSheet, "Goście");
   XLSX.utils.book_append_sheet(workbook, legendSheet, "Legenda");
+  XLSX.utils.book_append_sheet(
+    workbook,
+    validationSheet,
+    VALIDATION_SHEET_NAME,
+  );
 
-  return XLSX.write(workbook, { bookType, type: "array" });
+  return workbook;
+};
+
+const buildValidationXml = () => {
+  const listFormula = (column: string, endRow: number) =>
+    `'${VALIDATION_SHEET_NAME}'!$${column}$2:$${column}$${endRow}`;
+
+  const validations = [
+    { sqref: "C2:C201", formula: listFormula("A", 5) },
+    { sqref: "F2:F201", formula: listFormula("B", 4) },
+    { sqref: "H2:H201", formula: listFormula("C", 4) },
+    { sqref: "J2:J201", formula: listFormula("D", 3) },
+    { sqref: "I2:I201 K2:K201 L2:L201", formula: listFormula("E", 3) },
+  ];
+
+  return `<dataValidations count="${validations.length}">${validations
+    .map(
+      ({ sqref, formula }) =>
+        `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="${sqref}"><formula1>${formula}</formula1></dataValidation>`,
+    )
+    .join("")}</dataValidations>`;
+};
+
+const patchWorkbookXml = (xml: string) =>
+  xml.replace(
+    `name="${VALIDATION_SHEET_NAME}" sheetId="3"`,
+    `name="${VALIDATION_SHEET_NAME}" sheetId="3" state="hidden"`,
+  );
+
+const patchGuestSheetXml = (xml: string) =>
+  xml.includes("<dataValidations")
+    ? xml
+    : xml.replace("</worksheet>", `${buildValidationXml()}</worksheet>`);
+
+const buildWorkbookBuffer = async (bookType: "xlsx" | "xls") => {
+  const workbook = buildWorkbook();
+  const rawBuffer = XLSX.write(workbook, { bookType, type: "array" });
+
+  if (bookType !== "xlsx") {
+    return rawBuffer;
+  }
+
+  const zip = await JSZip.loadAsync(rawBuffer);
+  const workbookXmlPath = "xl/workbook.xml";
+  const guestSheetPath = "xl/worksheets/sheet1.xml";
+  const workbookXml = await zip.file(workbookXmlPath)?.async("string");
+  const guestSheetXml = await zip.file(guestSheetPath)?.async("string");
+
+  if (!workbookXml || !guestSheetXml) {
+    return rawBuffer;
+  }
+
+  zip.file(workbookXmlPath, patchWorkbookXml(workbookXml));
+  zip.file(guestSheetPath, patchGuestSheetXml(guestSheetXml));
+
+  return zip.generateAsync({ type: "arraybuffer" });
 };
 
 export const ImportWizard = ({
@@ -254,9 +327,9 @@ export const ImportWizard = ({
               type="button"
               variant="outline"
               className="rounded-full"
-              onClick={() =>
+              onClick={async () =>
                 downloadBlob(
-                  buildWorkbookBuffer("xlsx"),
+                  await buildWorkbookBuffer("xlsx"),
                   "szablon-goscie.xlsx",
                   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
@@ -268,9 +341,9 @@ export const ImportWizard = ({
               type="button"
               variant="outline"
               className="rounded-full"
-              onClick={() =>
+              onClick={async () =>
                 downloadBlob(
-                  buildWorkbookBuffer("xls"),
+                  await buildWorkbookBuffer("xls"),
                   "szablon-goscie.xls",
                   "application/vnd.ms-excel",
                 )

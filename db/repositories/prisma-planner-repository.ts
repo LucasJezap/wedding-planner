@@ -809,6 +809,19 @@ export const prismaPlannerRepository: PlannerRepository = {
       }),
     );
   },
+  async deleteBudgetCategory(categoryId) {
+    const expenses = await db.expense.findMany({
+      where: { categoryId },
+      select: { id: true },
+    });
+    const expenseIds = expenses.map((expense) => expense.id);
+
+    await db.$transaction([
+      db.payment.deleteMany({ where: { expenseId: { in: expenseIds } } }),
+      db.expense.deleteMany({ where: { categoryId } }),
+      db.budgetCategory.delete({ where: { id: categoryId } }),
+    ]);
+  },
   async createExpense(expense) {
     return toExpenseRecord(
       await db.expense.create({

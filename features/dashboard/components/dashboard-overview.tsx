@@ -22,11 +22,7 @@ import {
 import { useLocale } from "@/components/locale-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SummaryCard } from "@/components/summary-card";
-import {
-  canAccessSection,
-  canViewDashboardTasks,
-  type PlannerSection,
-} from "@/lib/access-control";
+import { canViewDashboardTasks } from "@/lib/access-control";
 import { formatCurrency, formatDate, formatTime } from "@/lib/format";
 import type { DashboardData } from "@/lib/planner-domain";
 
@@ -35,75 +31,28 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
   const coupleNames = `${data.wedding.coupleOneName} & ${data.wedding.coupleTwoName}`;
   const canSeeBudget = data.viewerRole === "ADMIN" || !data.viewerRole;
   const canSeeTasks = canViewDashboardTasks(data.viewerRole ?? "ADMIN");
-  const dashboardLinks = [
-    {
-      href: "/guests",
-      label: messages.shell.nav.guests,
-      section: "guests" as PlannerSection,
-    },
-    {
-      href: "/vendors",
-      label: messages.shell.nav.vendors,
-      section: "vendors" as PlannerSection,
-    },
-    {
-      href: "/tasks",
-      label: messages.shell.nav.tasks,
-      section: "tasks" as PlannerSection,
-    },
-    {
-      href: "/budget",
-      label: messages.shell.nav.budget,
-      section: "budget" as PlannerSection,
-    },
-    {
-      href: "/timeline",
-      label: messages.shell.nav.timeline,
-      section: "timeline" as PlannerSection,
-    },
-    {
-      href: "/seating",
-      label: messages.shell.nav.seating,
-      section: "seating" as PlannerSection,
-    },
-    {
-      href: "/import",
-      label: messages.shell.nav.import,
-      section: "import" as PlannerSection,
-    },
-    {
-      href: "/public",
-      label: messages.shell.nav.publicSite,
-      section: "public" as PlannerSection,
-    },
-  ].filter((link) =>
-    canAccessSection(data.viewerRole ?? "ADMIN", link.section),
-  );
   const [chartFilter, setChartFilter] = useState<
-    "all" | "remaining" | "paid" | "top"
-  >("all");
-  const chartData =
-    chartFilter === "remaining"
-      ? data.categorySpend.filter((category) => category.remaining > 0)
-      : chartFilter === "paid"
-        ? data.categorySpend.filter((category) => category.actual > 0)
-        : chartFilter === "top"
-          ? data.categorySpend
-              .slice()
-              .sort((left, right) => right.planned - left.planned)
-              .slice(0, 8)
-          : data.categorySpend;
+    "planned" | "paid" | "remaining"
+  >("planned");
+  const chartData = data.categorySpend
+    .slice()
+    .filter((category) =>
+      chartFilter === "planned"
+        ? category.planned > 0
+        : chartFilter === "paid"
+          ? category.actual > 0
+          : category.remaining > 0,
+    )
+    .sort((left, right) =>
+      chartFilter === "planned"
+        ? right.planned - left.planned
+        : chartFilter === "paid"
+          ? right.actual - left.actual
+          : right.remaining - left.remaining,
+    );
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Link
-          href="#dashboard-links"
-          className="rounded-full border border-[var(--color-dusty-rose)] bg-white px-4 py-2 text-sm text-[var(--color-ink)]"
-        >
-          {messages.common.more}
-        </Link>
-      </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
           {
@@ -177,23 +126,20 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   value={chartFilter}
                   onChange={(event) =>
                     setChartFilter(
-                      event.target.value as
-                        | "all"
-                        | "remaining"
-                        | "paid"
-                        | "top",
+                      event.target.value as "planned" | "paid" | "remaining",
                     )
                   }
                   aria-label={messages.dashboard.chartFilter}
                 >
-                  <option value="all">{messages.dashboard.filters.all}</option>
-                  <option value="remaining">
-                    {messages.dashboard.filters.remaining}
+                  <option value="planned">
+                    {messages.dashboard.filters.planned}
                   </option>
                   <option value="paid">
                     {messages.dashboard.filters.paid}
                   </option>
-                  <option value="top">{messages.dashboard.filters.top}</option>
+                  <option value="remaining">
+                    {messages.dashboard.filters.remaining}
+                  </option>
                 </select>
               </div>
             </CardHeader>
@@ -208,15 +154,21 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   <XAxis dataKey="name" stroke="#74626a" />
                   <Tooltip />
                   <Bar
-                    dataKey="planned"
-                    name={messages.dashboard.planned}
+                    dataKey={
+                      chartFilter === "planned"
+                        ? "planned"
+                        : chartFilter === "paid"
+                          ? "actual"
+                          : "remaining"
+                    }
+                    name={
+                      chartFilter === "planned"
+                        ? messages.dashboard.planned
+                        : chartFilter === "paid"
+                          ? messages.budget.paid
+                          : messages.budget.remaining
+                    }
                     fill="#e7c787"
-                    radius={[10, 10, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="actual"
-                    name={messages.dashboard.actual}
-                    fill="#c57c92"
                     radius={[10, 10, 0, 0]}
                   />
                 </BarChart>
@@ -245,6 +197,14 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                 <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
                   {event.location}
                 </p>
+                <div className="mt-4 flex justify-end">
+                  <Link
+                    href={`/timeline#timeline-${event.id}`}
+                    className="rounded-full bg-white px-4 py-2 text-sm text-[var(--color-ink)]"
+                  >
+                    {messages.common.more}
+                  </Link>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -286,6 +246,14 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
                     {task.notes || messages.dashboard.noTaskNotes}
                   </p>
+                  <div className="mt-4 flex justify-end">
+                    <Link
+                      href={`/tasks#task-${task.id}`}
+                      className="rounded-full bg-white px-4 py-2 text-sm text-[var(--color-ink)]"
+                    >
+                      {messages.common.more}
+                    </Link>
+                  </div>
                 </div>
               ))}
             </CardContent>
@@ -301,7 +269,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
             <CardContent className="space-y-4">
               {data.expenseHighlights.map((expense) => (
                 <div
-                  key={expense.name}
+                  key={expense.id}
                   className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -322,33 +290,20 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                       formatCurrency(expense.remaining, locale),
                     )}
                   </p>
+                  <div className="mt-4 flex justify-end">
+                    <Link
+                      href={`/budget#expense-${expense.id}`}
+                      className="rounded-full bg-white px-4 py-2 text-sm text-[var(--color-ink)]"
+                    >
+                      {messages.common.more}
+                    </Link>
+                  </div>
                 </div>
               ))}
             </CardContent>
           </Card>
         ) : null}
       </div>
-      <Card
-        id="dashboard-links"
-        className="border-white/70 bg-white/85 shadow-[0_18px_60px_rgba(160,96,120,0.12)]"
-      >
-        <CardHeader>
-          <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
-            {messages.common.more}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          {dashboardLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="rounded-full bg-[var(--color-card-tint)] px-4 py-2 text-sm text-[var(--color-ink)]"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
     </div>
   );
 };

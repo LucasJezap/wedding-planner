@@ -92,7 +92,6 @@ export const GuestManager = ({
   const handleEdit = (guest: GuestView) => {
     setSelectedGuest(guest);
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.scrollTo({ top: 0, behavior: "smooth" });
     reset({
       firstName: guest.firstName,
       lastName: guest.lastName,
@@ -144,7 +143,10 @@ export const GuestManager = ({
       className={`grid gap-6 ${canEdit ? "xl:grid-cols-[0.8fr_1.2fr]" : "grid-cols-1"}`}
     >
       {canEdit ? (
-        <Card className="border-white/70 bg-white/85" ref={formRef}>
+        <Card
+          className="scroll-mt-40 border-white/70 bg-white/85"
+          ref={formRef}
+        >
           <CardHeader>
             <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
               {selectedGuest ? messages.guests.edit : messages.guests.add}
@@ -346,6 +348,8 @@ export const GuestManager = ({
                   return (
                     <TableRow
                       key={guest.id}
+                      id={`guest-${guest.id}`}
+                      className="scroll-mt-40"
                       onDoubleClick={() => canEdit && handleEdit(guest)}
                     >
                       <TableCell>

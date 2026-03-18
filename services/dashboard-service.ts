@@ -52,12 +52,13 @@ export const getDashboardData = async (options?: {
       assignee: task.assignee,
       notes: task.notes,
     }));
-  const expenseHighlights = budget.categories
-    .map((category) => ({
-      name: category.name,
-      planned: category.plannedAmount,
-      actual: category.actualAmount,
-      remaining: category.remainingAmount,
+  const expenseHighlights = budget.expenses
+    .map((expense) => ({
+      id: expense.id,
+      name: expense.name,
+      planned: expense.estimateMax,
+      actual: expense.actualAmount,
+      remaining: expense.remainingAmount,
     }))
     .sort((left, right) => right.planned - left.planned);
 

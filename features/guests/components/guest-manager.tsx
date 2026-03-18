@@ -1,10 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
+import { FieldError } from "@/components/field-error";
 import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +24,22 @@ import type { GuestInput } from "@/features/guests/types/guest";
 import { canEditGuests } from "@/lib/access-control";
 import type { GuestView, UserRole } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
+
+const guestFormSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  side: z.enum(["BRIDE", "GROOM", "FAMILY", "FRIENDS"]),
+  rsvpStatus: z.enum(["PENDING", "ATTENDING", "DECLINED"]),
+  paymentCoverage: z.enum(["FULL", "HALF"]),
+  invitationReceived: z.boolean(),
+  transportToVenue: z.boolean(),
+  transportFromVenue: z.boolean(),
+  dietaryRestrictions: z.array(z.enum(["NONE", "VEGETARIAN", "VEGAN"])),
+  dietaryRestriction: z.enum(["NONE", "VEGETARIAN", "VEGAN"]),
+  email: z.string().email().or(z.literal("")),
+  phone: z.string().min(6).or(z.literal("")),
+  notes: z.string(),
+});
 
 type GuestFormValues = GuestInput & {
   dietaryRestriction: "NONE" | "VEGETARIAN" | "VEGAN";
@@ -56,37 +76,47 @@ export const GuestManager = ({
   const [side, setSide] = useState("ALL");
   const formRef = useRef<HTMLDivElement | null>(null);
   const filteredGuests = useGuestFilters(guests, search, side);
-  const { register, handleSubmit, reset } = useForm<GuestFormValues>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<GuestFormValues>({
     defaultValues: emptyGuestForm,
+    resolver: zodResolver(guestFormSchema) as never,
   });
 
-  const onSubmit = handleSubmit(async (values) => {
-    const payload: GuestInput = {
-      ...values,
-      dietaryRestrictions: [values.dietaryRestriction],
-    };
+  const onSubmit = handleSubmit(async (values: GuestFormValues) => {
+    try {
+      const payload: GuestInput = {
+        ...values,
+        dietaryRestrictions: [values.dietaryRestriction],
+      };
 
-    if (selectedGuest) {
-      const updated = await apiClient<GuestView>(
-        `/api/guests/${selectedGuest.id}`,
-        {
-          method: "PATCH",
+      if (selectedGuest) {
+        const updated = await apiClient<GuestView>(
+          `/api/guests/${selectedGuest.id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          },
+        );
+        setGuests((current) =>
+          current.map((guest) => (guest.id === updated.id ? updated : guest)),
+        );
+      } else {
+        const created = await apiClient<GuestView>("/api/guests", {
+          method: "POST",
           body: JSON.stringify(payload),
-        },
-      );
-      setGuests((current) =>
-        current.map((guest) => (guest.id === updated.id ? updated : guest)),
-      );
-    } else {
-      const created = await apiClient<GuestView>("/api/guests", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      setGuests((current) => [...current, created]);
-    }
+        });
+        setGuests((current) => [...current, created]);
+      }
 
-    setSelectedGuest(null);
-    reset(emptyGuestForm);
+      setSelectedGuest(null);
+      reset(emptyGuestForm);
+    } catch {
+      toast.error(messages.common.actionError);
+    }
   });
 
   const handleEdit = (guest: GuestView) => {
@@ -117,25 +147,34 @@ export const GuestManager = ({
     if (!window.confirm(messages.common.confirmDelete)) {
       return;
     }
-    await apiClient<{ guestId: string }>(`/api/guests/${guestId}`, {
-      method: "DELETE",
-    });
-    setGuests((current) => current.filter((guest) => guest.id !== guestId));
+    try {
+      await apiClient<{ guestId: string }>(`/api/guests/${guestId}`, {
+        method: "DELETE",
+      });
+      setGuests((current) => current.filter((guest) => guest.id !== guestId));
+    } catch {
+      toast.error(messages.common.actionError);
+    }
   };
 
   const handleRsvpToggle = async (guest: GuestView) => {
-    const updated = await apiClient<GuestView>(`/api/guests/${guest.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        ...guest,
-        rsvpStatus: guest.rsvpStatus === "ATTENDING" ? "PENDING" : "ATTENDING",
-      }),
-    });
-    setGuests((current) =>
-      current.map((candidate) =>
-        candidate.id === updated.id ? updated : candidate,
-      ),
-    );
+    try {
+      const updated = await apiClient<GuestView>(`/api/guests/${guest.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...guest,
+          rsvpStatus:
+            guest.rsvpStatus === "ATTENDING" ? "PENDING" : "ATTENDING",
+        }),
+      });
+      setGuests((current) =>
+        current.map((candidate) =>
+          candidate.id === updated.id ? updated : candidate,
+        ),
+      );
+    } catch {
+      toast.error(messages.common.actionError);
+    }
   };
 
   return (
@@ -159,15 +198,19 @@ export const GuestManager = ({
                   <span>{messages.guests.firstName}</span>
                   <Input
                     placeholder={messages.guests.firstName}
+                    aria-invalid={!!errors.firstName}
                     {...register("firstName")}
                   />
+                  <FieldError error={errors.firstName} />
                 </label>
                 <label className="space-y-1 text-sm text-[var(--color-ink)]">
                   <span>{messages.guests.lastName}</span>
                   <Input
                     placeholder={messages.guests.lastName}
+                    aria-invalid={!!errors.lastName}
                     {...register("lastName")}
                   />
+                  <FieldError error={errors.lastName} />
                 </label>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -244,16 +287,22 @@ export const GuestManager = ({
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.guests.email}</span>
                 <Input
+                  type="email"
                   placeholder={messages.guests.email}
+                  aria-invalid={!!errors.email}
                   {...register("email")}
                 />
+                <FieldError error={errors.email} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.guests.phone}</span>
                 <Input
+                  type="tel"
                   placeholder={messages.guests.phone}
+                  aria-invalid={!!errors.phone}
                   {...register("phone")}
                 />
+                <FieldError error={errors.phone} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.guests.dietaryLabel}</span>
@@ -276,7 +325,11 @@ export const GuestManager = ({
                 />
               </label>
               <div className="flex gap-3">
-                <Button className="rounded-full" type="submit">
+                <Button
+                  className="rounded-full"
+                  type="submit"
+                  disabled={isSubmitting}
+                >
                   {selectedGuest
                     ? messages.guests.save
                     : messages.guests.create}
@@ -309,11 +362,13 @@ export const GuestManager = ({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={messages.guests.search}
+              aria-label={messages.guests.search}
             />
             <select
               className="h-10 rounded-xl border px-3"
               value={side}
               onChange={(event) => setSide(event.target.value)}
+              aria-label={messages.guests.side}
             >
               <option value="ALL">{messages.guests.allSides}</option>
               <option value="BRIDE">{messages.enums.guestSide.BRIDE}</option>
@@ -432,6 +487,11 @@ export const GuestManager = ({
                 })}
               </TableBody>
             </Table>
+            {filteredGuests.length === 0 ? (
+              <p className="py-8 text-center text-sm text-[var(--color-muted-copy)]">
+                {messages.guests.empty}
+              </p>
+            ) : null}
           </div>
         </CardContent>
       </Card>

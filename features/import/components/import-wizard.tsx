@@ -1,8 +1,9 @@
 "use client";
 
-import JSZip from "jszip";
 import { useState } from "react";
-import * as XLSX from "xlsx";
+
+const loadXLSX = () => import("xlsx");
+const loadJSZip = () => import("jszip").then((mod) => mod.default);
 
 import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import {
   isBlankImportRow,
 } from "@/features/import/types/import";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "@/lib/toast";
 import type { GuestView } from "@/lib/planner-domain";
 
 type PreviewRow = Record<string, string>;
@@ -99,7 +101,8 @@ const buildDelimitedTemplate = (separator: "," | "\t") => {
   ].join("\n");
 };
 
-const buildWorkbook = () => {
+const buildWorkbook = async () => {
+  const XLSX = await loadXLSX();
   const workbook = XLSX.utils.book_new();
   const guestRows = [
     [...IMPORT_TEMPLATE_HEADERS],
@@ -159,13 +162,15 @@ const patchGuestSheetXml = (xml: string) =>
     : xml.replace("</worksheet>", `${buildValidationXml()}</worksheet>`);
 
 const buildWorkbookBuffer = async (bookType: "xlsx" | "xls") => {
-  const workbook = buildWorkbook();
+  const XLSX = await loadXLSX();
+  const workbook = await buildWorkbook();
   const rawBuffer = XLSX.write(workbook, { bookType, type: "array" });
 
   if (bookType !== "xlsx") {
     return rawBuffer;
   }
 
+  const JSZip = await loadJSZip();
   const zip = await JSZip.loadAsync(rawBuffer);
   const workbookXmlPath = "xl/workbook.xml";
   const guestSheetPath = "xl/worksheets/sheet1.xml";
@@ -224,6 +229,7 @@ export const ImportWizard = ({
       } else if (extension === "tsv") {
         parsedWorkbookRows = { TSV: await parseDelimitedRows("\t") };
       } else {
+        const XLSX = await loadXLSX();
         const buffer = await file.arrayBuffer();
         const workbook = XLSX.read(buffer, { type: "array" });
         parsedWorkbookRows = Object.fromEntries(
@@ -451,13 +457,17 @@ export const ImportWizard = ({
               <Button
                 className="rounded-full"
                 onClick={async () => {
-                  const guests = await apiClient<GuestView[]>("/api/import", {
-                    method: "POST",
-                    body: JSON.stringify({
-                      rows: mapPreviewRows(rows, mapping),
-                    }),
-                  });
-                  onImported?.(guests);
+                  try {
+                    const guests = await apiClient<GuestView[]>("/api/import", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        rows: mapPreviewRows(rows, mapping),
+                      }),
+                    });
+                    onImported?.(guests);
+                  } catch {
+                    toast.error(messages.common.actionError);
+                  }
                 }}
               >
                 {messages.import.importGuests}

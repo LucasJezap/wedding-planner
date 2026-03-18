@@ -1,14 +1,78 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { zodResolver } from "@hookform/resolvers/zod";
 
+import { FieldError } from "@/components/field-error";
 import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
+
+const LazyPieChart = dynamic(
+  () =>
+    import("recharts").then((mod) => {
+      const { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } = mod;
+      const ChartWrapper = ({
+        data,
+        dataKey,
+        nameKey,
+        formatValue,
+        fallbackLabel,
+      }: {
+        data: Array<{
+          id: string;
+          color: string;
+          name: string;
+          [key: string]: unknown;
+        }>;
+        dataKey: string;
+        nameKey: string;
+        formatValue: (value: number) => string;
+        fallbackLabel: string;
+      }) => (
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey={dataKey}
+              nameKey={nameKey}
+              outerRadius={100}
+            >
+              {data.map((entry) => (
+                <Cell key={entry.id} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value, _name, item) => [
+                formatValue(Number(value ?? 0)),
+                item?.payload?.name ?? fallbackLabel,
+              ]}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      );
+      ChartWrapper.displayName = "BudgetPieChart";
+      return { default: ChartWrapper };
+    }),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center text-sm text-[var(--color-muted-copy)]">
+        Ładowanie wykresu...
+      </div>
+    ),
+  },
+);
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useBudgetTotals } from "@/features/budget/hooks/use-budget-totals";
+import {
+  budgetCategoryInputSchema,
+  expenseInputSchema,
+  paymentInputSchema,
+} from "@/features/budget/types/budget";
 import type {
   BudgetCategoryInput,
   ExpenseInput,
@@ -85,12 +149,16 @@ export const BudgetManager = ({
   const totals = useBudgetTotals(categories, expenses);
 
   const refreshBudget = async () => {
-    const refreshed = await apiClient<{
-      categories: BudgetCategoryView[];
-      expenses: ExpenseView[];
-    }>("/api/budget");
-    setCategories(refreshed.categories);
-    setExpenses(refreshed.expenses);
+    try {
+      const refreshed = await apiClient<{
+        categories: BudgetCategoryView[];
+        expenses: ExpenseView[];
+      }>("/api/budget");
+      setCategories(refreshed.categories);
+      setExpenses(refreshed.expenses);
+    } catch {
+      toast.error(messages.common.actionError);
+    }
   };
 
   const {
@@ -98,6 +166,7 @@ export const BudgetManager = ({
     handleSubmit: handleCategorySubmit,
     reset: resetCategory,
     setValue: setCategoryValue,
+    formState: { errors: categoryErrors, isSubmitting: isCategorySubmitting },
   } = useForm<BudgetCategoryInput>({
     defaultValues: {
       name: "",
@@ -105,11 +174,13 @@ export const BudgetManager = ({
       color: categoryPalette[0],
       notes: "",
     },
+    resolver: zodResolver(budgetCategoryInputSchema) as never,
   });
   const {
     register: registerExpense,
     handleSubmit: handleExpenseSubmit,
     reset: resetExpense,
+    formState: { errors: expenseErrors, isSubmitting: isExpenseSubmitting },
   } = useForm<ExpenseInput>({
     defaultValues: {
       categoryId: initialCategories[0]?.id ?? "",
@@ -119,11 +190,13 @@ export const BudgetManager = ({
       actualAmount: 0,
       notes: "",
     },
+    resolver: zodResolver(expenseInputSchema) as never,
   });
   const {
     register: registerPayment,
     handleSubmit: handlePaymentSubmit,
     reset: resetPayment,
+    formState: { errors: paymentErrors, isSubmitting: isPaymentSubmitting },
   } = useForm<PaymentInput>({
     defaultValues: {
       expenseId: "",
@@ -131,6 +204,7 @@ export const BudgetManager = ({
       paidAt: new Date().toISOString().slice(0, 16),
       notes: "",
     },
+    resolver: zodResolver(paymentInputSchema) as never,
   });
 
   const resetCategoryForm = () => {
@@ -242,24 +316,32 @@ export const BudgetManager = ({
             <form
               className="space-y-3"
               onSubmit={handleCategorySubmit(async (values) => {
-                await apiClient<BudgetCategoryView>(
-                  selectedCategory ? "/api/budget" : "/api/budget/categories",
-                  {
-                    method: selectedCategory ? "PATCH" : "POST",
-                    body: JSON.stringify({
-                      ...values,
-                      plannedAmount: Number(values.plannedAmount),
-                      categoryId: selectedCategory?.id,
-                    }),
-                  },
-                );
-                await refreshBudget();
-                resetCategoryForm();
+                try {
+                  await apiClient<BudgetCategoryView>(
+                    selectedCategory ? "/api/budget" : "/api/budget/categories",
+                    {
+                      method: selectedCategory ? "PATCH" : "POST",
+                      body: JSON.stringify({
+                        ...values,
+                        plannedAmount: Number(values.plannedAmount),
+                        categoryId: selectedCategory?.id,
+                      }),
+                    },
+                  );
+                  await refreshBudget();
+                  resetCategoryForm();
+                } catch {
+                  toast.error(messages.common.actionError);
+                }
               })}
             >
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.categoryName}</span>
-                <Input {...registerCategory("name")} />
+                <Input
+                  aria-invalid={!!categoryErrors.name}
+                  {...registerCategory("name")}
+                />
+                <FieldError error={categoryErrors.name} />
               </label>
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.planAmount}</span>
@@ -328,7 +410,11 @@ export const BudgetManager = ({
                 <Input {...registerCategory("notes")} />
               </label>
               <div className="flex gap-3">
-                <Button className="rounded-full" type="submit">
+                <Button
+                  className="rounded-full"
+                  type="submit"
+                  disabled={isCategorySubmitting}
+                >
                   {selectedCategory
                     ? messages.budget.saveCategory
                     : messages.budget.createCategory}
@@ -349,14 +435,18 @@ export const BudgetManager = ({
                         if (!window.confirm(messages.common.confirmDelete)) {
                           return;
                         }
-                        await apiClient<{ categoryId: string }>(
-                          `/api/budget/categories/${selectedCategory.id}`,
-                          {
-                            method: "DELETE",
-                          },
-                        );
-                        await refreshBudget();
-                        resetCategoryForm();
+                        try {
+                          await apiClient<{ categoryId: string }>(
+                            `/api/budget/categories/${selectedCategory.id}`,
+                            {
+                              method: "DELETE",
+                            },
+                          );
+                          await refreshBudget();
+                          resetCategoryForm();
+                        } catch {
+                          toast.error(messages.common.actionError);
+                        }
                       }}
                     >
                       {messages.guests.delete}
@@ -383,22 +473,26 @@ export const BudgetManager = ({
             <form
               className="space-y-3"
               onSubmit={handleExpenseSubmit(async (values) => {
-                await apiClient<ExpenseView>(
-                  selectedExpense
-                    ? `/api/budget/expenses/${selectedExpense.id}`
-                    : "/api/budget",
-                  {
-                    method: selectedExpense ? "PATCH" : "POST",
-                    body: JSON.stringify({
-                      ...values,
-                      estimateMin: Number(values.estimateMin),
-                      estimateMax: Number(values.estimateMax),
-                      actualAmount: Number(values.actualAmount),
-                    }),
-                  },
-                );
-                await refreshBudget();
-                resetExpenseForm();
+                try {
+                  await apiClient<ExpenseView>(
+                    selectedExpense
+                      ? `/api/budget/expenses/${selectedExpense.id}`
+                      : "/api/budget",
+                    {
+                      method: selectedExpense ? "PATCH" : "POST",
+                      body: JSON.stringify({
+                        ...values,
+                        estimateMin: Number(values.estimateMin),
+                        estimateMax: Number(values.estimateMax),
+                        actualAmount: Number(values.actualAmount),
+                      }),
+                    },
+                  );
+                  await refreshBudget();
+                  resetExpenseForm();
+                } catch {
+                  toast.error(messages.common.actionError);
+                }
               })}
             >
               <p className="text-sm leading-6 text-[var(--color-muted-copy)]">
@@ -419,7 +513,11 @@ export const BudgetManager = ({
               </label>
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.expenseName}</span>
-                <Input {...registerExpense("name")} />
+                <Input
+                  aria-invalid={!!expenseErrors.name}
+                  {...registerExpense("name")}
+                />
+                <FieldError error={expenseErrors.name} />
               </label>
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="block space-y-2 text-sm text-[var(--color-ink)]">
@@ -454,7 +552,11 @@ export const BudgetManager = ({
                 <Input {...registerExpense("notes")} />
               </label>
               <div className="flex gap-3">
-                <Button className="rounded-full" type="submit">
+                <Button
+                  className="rounded-full"
+                  type="submit"
+                  disabled={isExpenseSubmitting}
+                >
                   {selectedExpense
                     ? messages.budget.saveExpense
                     : messages.budget.createExpense}
@@ -503,26 +605,13 @@ export const BudgetManager = ({
             </div>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categories}
-                  dataKey={categoryChartMetric}
-                  nameKey="name"
-                  outerRadius={100}
-                >
-                  {categories.map((category) => (
-                    <Cell key={category.id} fill={category.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value, _name, item) => [
-                    formatCurrency(Number(value ?? 0), locale),
-                    item?.payload?.name ?? messages.budget.categoryName,
-                  ]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <LazyPieChart
+              data={categories}
+              dataKey={categoryChartMetric}
+              nameKey="name"
+              formatValue={(value) => formatCurrency(value, locale)}
+              fallbackLabel={messages.budget.categoryName}
+            />
           </CardContent>
           <CardContent className="pt-0">
             <details className="rounded-[1.25rem] border border-[var(--color-card-tint)]/70 bg-[var(--color-card-tint)]/20 px-4 py-3">
@@ -559,6 +648,11 @@ export const BudgetManager = ({
           </CardContent>
         </Card>
 
+        {categories.length === 0 ? (
+          <p className="py-8 text-center text-sm text-[var(--color-muted-copy)]">
+            {messages.budget.emptyCategories}
+          </p>
+        ) : null}
         <div className="grid gap-4">
           {categories.map((category) => (
             <Card
@@ -597,15 +691,19 @@ export const BudgetManager = ({
                         if (!window.confirm(messages.common.confirmDelete)) {
                           return;
                         }
-                        await apiClient<{ categoryId: string }>(
-                          `/api/budget/categories/${category.id}`,
-                          {
-                            method: "DELETE",
-                          },
-                        );
-                        await refreshBudget();
-                        if (selectedCategory?.id === category.id) {
-                          resetCategoryForm();
+                        try {
+                          await apiClient<{ categoryId: string }>(
+                            `/api/budget/categories/${category.id}`,
+                            {
+                              method: "DELETE",
+                            },
+                          );
+                          await refreshBudget();
+                          if (selectedCategory?.id === category.id) {
+                            resetCategoryForm();
+                          }
+                        } catch {
+                          toast.error(messages.common.actionError);
                         }
                       }}
                     >
@@ -644,6 +742,11 @@ export const BudgetManager = ({
           ))}
         </div>
 
+        {expenses.length === 0 ? (
+          <p className="py-8 text-center text-sm text-[var(--color-muted-copy)]">
+            {messages.budget.emptyExpenses}
+          </p>
+        ) : null}
         <div className="grid gap-4">
           {expenses.map((expense) => (
             <Card
@@ -685,13 +788,17 @@ export const BudgetManager = ({
                         if (!window.confirm(messages.common.confirmDelete)) {
                           return;
                         }
-                        await apiClient<{ expenseId: string }>(
-                          `/api/budget/expenses/${expense.id}`,
-                          {
-                            method: "DELETE",
-                          },
-                        );
-                        await refreshBudget();
+                        try {
+                          await apiClient<{ expenseId: string }>(
+                            `/api/budget/expenses/${expense.id}`,
+                            {
+                              method: "DELETE",
+                            },
+                          );
+                          await refreshBudget();
+                        } catch {
+                          toast.error(messages.common.actionError);
+                        }
                       }}
                     >
                       {messages.guests.delete}
@@ -769,24 +876,28 @@ export const BudgetManager = ({
                     <form
                       className="grid gap-3 sm:grid-cols-[1fr_1fr_1.2fr_auto]"
                       onSubmit={handlePaymentSubmit(async (values) => {
-                        await apiClient<ExpenseView>(
-                          `/api/budget/expenses/${expense.id}/payments`,
-                          {
-                            method: "POST",
-                            body: JSON.stringify({
-                              amount: Number(values.amount),
-                              paidAt: values.paidAt,
-                              notes: values.notes,
-                            }),
-                          },
-                        );
-                        await refreshBudget();
-                        resetPayment({
-                          expenseId: expense.id,
-                          amount: 0,
-                          paidAt: new Date().toISOString().slice(0, 16),
-                          notes: "",
-                        });
+                        try {
+                          await apiClient<ExpenseView>(
+                            `/api/budget/expenses/${expense.id}/payments`,
+                            {
+                              method: "POST",
+                              body: JSON.stringify({
+                                amount: Number(values.amount),
+                                paidAt: values.paidAt,
+                                notes: values.notes,
+                              }),
+                            },
+                          );
+                          await refreshBudget();
+                          resetPayment({
+                            expenseId: expense.id,
+                            amount: 0,
+                            paidAt: new Date().toISOString().slice(0, 16),
+                            notes: "",
+                          });
+                        } catch {
+                          toast.error(messages.common.actionError);
+                        }
                       })}
                     >
                       <Input
@@ -803,7 +914,11 @@ export const BudgetManager = ({
                         placeholder={messages.budget.paymentNotes}
                         {...registerPayment("notes")}
                       />
-                      <Button className="rounded-full" type="submit">
+                      <Button
+                        className="rounded-full"
+                        type="submit"
+                        disabled={isPaymentSubmitting}
+                      >
                         {messages.budget.addPayment}
                       </Button>
                     </form>

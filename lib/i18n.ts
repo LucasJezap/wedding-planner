@@ -9,6 +9,15 @@ const dictionaries = {
     common: {
       confirmDelete: "Czy na pewno chcesz usunąć?",
       more: "Więcej",
+      errorTitle: "Coś poszło nie tak",
+      errorDescription:
+        "Wystąpił nieoczekiwany błąd. Spróbuj ponownie lub odśwież stronę.",
+      errorRetry: "Spróbuj ponownie",
+      loading: "Ładowanie...",
+      actionError: "Operacja nie powiodła się. Spróbuj ponownie.",
+      fieldRequired: "To pole jest wymagane.",
+      fieldInvalidEmail: "Podaj poprawny adres email.",
+      fieldMinLength: (min: number) => `Minimum ${min} znaków.`,
     },
     locale: {
       label: "Język",
@@ -224,6 +233,7 @@ const dictionaries = {
       unassigned: "Nieprzypisany",
       editButton: "Edytuj",
       delete: "Usuń",
+      empty: "Nie masz jeszcze żadnych gości. Dodaj pierwszego powyżej.",
     },
     vendors: {
       add: "Dodaj usługodawcę",
@@ -240,6 +250,7 @@ const dictionaries = {
       pricingHidden: "Ceny są ukryte dla tego typu konta.",
       editButton: "Edytuj",
       delete: "Usuń",
+      empty: "Brak usługodawców. Dodaj pierwszego powyżej.",
     },
     tasks: {
       newTask: "Nowe zadanie",
@@ -261,6 +272,7 @@ const dictionaries = {
       todo: "Do zrobienia",
       inProgress: "W toku",
       done: "Gotowe",
+      empty: "Brak zadań. Utwórz pierwsze zadanie powyżej.",
     },
     budget: {
       totals: "Podsumowanie budżetu",
@@ -298,6 +310,8 @@ const dictionaries = {
       paymentAmount: "Kwota wpłaty",
       paymentNotes: "Notatka do wpłaty",
       addPayment: "Dodaj wpłatę",
+      emptyCategories: "Brak kategorii budżetowych. Dodaj pierwszą powyżej.",
+      emptyExpenses: "Brak wydatków. Dodaj pierwszy wydatek powyżej.",
     },
     timeline: {
       addEvent: "Dodaj wydarzenie",
@@ -310,6 +324,7 @@ const dictionaries = {
       visibleToGuests: "Pokaż gościom",
       hiddenFromGuests: "Ukryte przed gośćmi",
       delete: "Usuń",
+      empty: "Brak wydarzeń w harmonogramie. Dodaj pierwsze powyżej.",
     },
     seating: {
       assigned: "Przypisani",
@@ -413,6 +428,15 @@ const dictionaries = {
     common: {
       confirmDelete: "Are you sure you want to delete this item?",
       more: "More",
+      errorTitle: "Something went wrong",
+      errorDescription:
+        "An unexpected error occurred. Please try again or refresh the page.",
+      errorRetry: "Try again",
+      loading: "Loading...",
+      actionError: "Operation failed. Please try again.",
+      fieldRequired: "This field is required.",
+      fieldInvalidEmail: "Please enter a valid email address.",
+      fieldMinLength: (min: number) => `Minimum ${min} characters.`,
     },
     locale: {
       label: "Language",
@@ -625,6 +649,7 @@ const dictionaries = {
       unassigned: "Unassigned",
       editButton: "Edit",
       delete: "Delete",
+      empty: "No guests yet. Add your first guest above.",
     },
     vendors: {
       add: "Add vendor",
@@ -641,6 +666,7 @@ const dictionaries = {
       pricingHidden: "Pricing is hidden for this account type.",
       editButton: "Edit",
       delete: "Delete",
+      empty: "No vendors yet. Add your first vendor above.",
     },
     tasks: {
       newTask: "New task",
@@ -661,6 +687,7 @@ const dictionaries = {
       todo: "Todo",
       inProgress: "In progress",
       done: "Done",
+      empty: "No tasks yet. Create your first task above.",
     },
     budget: {
       totals: "Budget totals",
@@ -698,6 +725,8 @@ const dictionaries = {
       paymentAmount: "Payment amount",
       paymentNotes: "Payment note",
       addPayment: "Add payment",
+      emptyCategories: "No budget categories yet. Add your first one above.",
+      emptyExpenses: "No expenses yet. Add your first expense above.",
     },
     timeline: {
       addEvent: "Add event",
@@ -710,6 +739,7 @@ const dictionaries = {
       visibleToGuests: "Show to guests",
       hiddenFromGuests: "Hidden from guests",
       delete: "Delete",
+      empty: "No timeline events yet. Add your first event above.",
     },
     seating: {
       assigned: "Assigned",

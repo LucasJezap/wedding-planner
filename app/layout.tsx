@@ -20,6 +20,18 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: "Wedding Planner",
   description: "Luxury wedding planning workspace for couples and planners.",
+  openGraph: {
+    title: "Wedding Planner",
+    description: "Luxury wedding planning workspace for couples and planners.",
+    type: "website",
+    locale: "pl_PL",
+  },
+  alternates: {
+    languages: {
+      "pl-PL": "/",
+      "en-US": "/?locale=en",
+    },
+  },
 };
 
 export default async function RootLayout({

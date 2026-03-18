@@ -7,7 +7,17 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Card, CardContent } from "@/components/ui/card";
 import { authOptions } from "@/lib/auth";
 import { getRequestMessages } from "@/lib/i18n-server";
-import { DEMO_CREDENTIALS, WITNESS_DEMO_CREDENTIALS } from "@/lib/planner-seed";
+const DEMO_CREDENTIALS = {
+  email: process.env.DEMO_ADMIN_EMAIL ?? "",
+  password: process.env.DEMO_ADMIN_PASSWORD ?? "",
+};
+
+const WITNESS_DEMO_CREDENTIALS = {
+  email: process.env.DEMO_WITNESS_EMAIL ?? "",
+  password: process.env.DEMO_WITNESS_PASSWORD ?? "",
+};
+
+const hasDemoCredentials = Boolean(DEMO_CREDENTIALS.email);
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -86,54 +96,56 @@ export default async function Home() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-white/80 bg-[linear-gradient(180deg,_rgba(197,124,146,0.16),_rgba(255,255,255,0.88))] shadow-[0_30px_120px_rgba(155,90,116,0.15)]">
-            <CardContent className="space-y-6 p-8">
-              <div>
-                <p className="text-sm uppercase tracking-[0.35em] text-[var(--color-dusty-rose)]">
-                  {messages.home.demoEyebrow}
-                </p>
-                <h2 className="mt-3 font-display text-4xl text-[var(--color-ink)]">
-                  {messages.home.demoTitle}
-                </h2>
-              </div>
-              <div className="space-y-4">
-                <p className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted-copy)]">
-                  {messages.home.demoAccounts}
-                </p>
-                <div className="rounded-[1.6rem] bg-white/85 p-6">
-                  <p className="text-sm text-[var(--color-muted-copy)]">
-                    {messages.home.adminAccount}
+          {hasDemoCredentials ? (
+            <Card className="border-white/80 bg-[linear-gradient(180deg,_rgba(197,124,146,0.16),_rgba(255,255,255,0.88))] shadow-[0_30px_120px_rgba(155,90,116,0.15)]">
+              <CardContent className="space-y-6 p-8">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.35em] text-[var(--color-dusty-rose)]">
+                    {messages.home.demoEyebrow}
                   </p>
-                  <p className="mt-1 text-lg text-[var(--color-ink)]">
-                    {DEMO_CREDENTIALS.email}
-                  </p>
-                  <p className="mt-4 text-sm text-[var(--color-muted-copy)]">
-                    {messages.home.password}
-                  </p>
-                  <p className="mt-1 text-lg text-[var(--color-ink)]">
-                    {DEMO_CREDENTIALS.password}
-                  </p>
+                  <h2 className="mt-3 font-display text-4xl text-[var(--color-ink)]">
+                    {messages.home.demoTitle}
+                  </h2>
                 </div>
-                <div className="rounded-[1.6rem] bg-white/85 p-6">
-                  <p className="text-sm text-[var(--color-muted-copy)]">
-                    {messages.home.witnessAccount}
+                <div className="space-y-4">
+                  <p className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted-copy)]">
+                    {messages.home.demoAccounts}
                   </p>
-                  <p className="mt-1 text-lg text-[var(--color-ink)]">
-                    {WITNESS_DEMO_CREDENTIALS.email}
-                  </p>
-                  <p className="mt-4 text-sm text-[var(--color-muted-copy)]">
-                    {messages.home.password}
-                  </p>
-                  <p className="mt-1 text-lg text-[var(--color-ink)]">
-                    {WITNESS_DEMO_CREDENTIALS.password}
-                  </p>
+                  <div className="rounded-[1.6rem] bg-white/85 p-6">
+                    <p className="text-sm text-[var(--color-muted-copy)]">
+                      {messages.home.adminAccount}
+                    </p>
+                    <p className="mt-1 text-lg text-[var(--color-ink)]">
+                      {DEMO_CREDENTIALS.email}
+                    </p>
+                    <p className="mt-4 text-sm text-[var(--color-muted-copy)]">
+                      {messages.home.password}
+                    </p>
+                    <p className="mt-1 text-lg text-[var(--color-ink)]">
+                      {DEMO_CREDENTIALS.password}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.6rem] bg-white/85 p-6">
+                    <p className="text-sm text-[var(--color-muted-copy)]">
+                      {messages.home.witnessAccount}
+                    </p>
+                    <p className="mt-1 text-lg text-[var(--color-ink)]">
+                      {WITNESS_DEMO_CREDENTIALS.email}
+                    </p>
+                    <p className="mt-4 text-sm text-[var(--color-muted-copy)]">
+                      {messages.home.password}
+                    </p>
+                    <p className="mt-1 text-lg text-[var(--color-ink)]">
+                      {WITNESS_DEMO_CREDENTIALS.password}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <p className="text-sm leading-7 text-[var(--color-muted-copy)]">
-                {messages.home.demoDescription}
-              </p>
-            </CardContent>
-          </Card>
+                <p className="text-sm leading-7 text-[var(--color-muted-copy)]">
+                  {messages.home.demoDescription}
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
         </section>
       </div>
     </main>

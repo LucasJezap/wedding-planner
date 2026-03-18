@@ -2,12 +2,16 @@
 
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
+import { FieldError } from "@/components/field-error";
 import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useVendorFilters } from "@/features/vendors/hooks/use-vendor-filters";
+import { vendorInputSchema } from "@/features/vendors/types/vendor";
 import type { VendorInput } from "@/features/vendors/types/vendor";
 import { canEditVendors } from "@/lib/access-control";
 import type {
@@ -41,7 +45,12 @@ export const VendorManager = ({
   );
   const formRef = useRef<HTMLDivElement | null>(null);
   const filteredVendors = useVendorFilters(vendors, search, categoryType);
-  const { register, handleSubmit, reset } = useForm<VendorInput>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<VendorInput>({
     defaultValues: {
       name: "",
       categoryId: categories[0]?.id ?? "",
@@ -50,42 +59,51 @@ export const VendorManager = ({
       contactPhone: "",
       notes: "",
     },
+    resolver: zodResolver(vendorInputSchema) as never,
   });
 
   const onSubmit = handleSubmit(async (values) => {
-    const payload = {
-      ...values,
-      cost: canViewPricing ? Number(values.cost) : (selectedVendor?.cost ?? 0),
-    };
+    try {
+      const payload = {
+        ...values,
+        cost: canViewPricing
+          ? Number(values.cost)
+          : (selectedVendor?.cost ?? 0),
+      };
 
-    if (selectedVendor) {
-      const updated = await apiClient<VendorView>(
-        `/api/vendors/${selectedVendor.id}`,
-        {
-          method: "PATCH",
+      if (selectedVendor) {
+        const updated = await apiClient<VendorView>(
+          `/api/vendors/${selectedVendor.id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          },
+        );
+        setVendors((current) =>
+          current.map((vendor) =>
+            vendor.id === updated.id ? updated : vendor,
+          ),
+        );
+      } else {
+        const created = await apiClient<VendorView>("/api/vendors", {
+          method: "POST",
           body: JSON.stringify(payload),
-        },
-      );
-      setVendors((current) =>
-        current.map((vendor) => (vendor.id === updated.id ? updated : vendor)),
-      );
-    } else {
-      const created = await apiClient<VendorView>("/api/vendors", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      setVendors((current) => [...current, created]);
-    }
+        });
+        setVendors((current) => [...current, created]);
+      }
 
-    setSelectedVendor(null);
-    reset({
-      name: "",
-      categoryId: categories[0]?.id ?? "",
-      cost: 0,
-      contactEmail: "",
-      contactPhone: "",
-      notes: "",
-    });
+      setSelectedVendor(null);
+      reset({
+        name: "",
+        categoryId: categories[0]?.id ?? "",
+        cost: 0,
+        contactEmail: "",
+        contactPhone: "",
+        notes: "",
+      });
+    } catch {
+      toast.error(messages.common.actionError);
+    }
   });
 
   const handleEdit = (vendor: VendorView) => {
@@ -119,8 +137,10 @@ export const VendorManager = ({
                 <span>{messages.vendors.name}</span>
                 <Input
                   placeholder={messages.vendors.name}
+                  aria-invalid={!!errors.name}
                   {...register("name")}
                 />
+                <FieldError error={errors.name} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.vendors.category ?? "Typ"}</span>
@@ -153,16 +173,22 @@ export const VendorManager = ({
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.vendors.contactEmail}</span>
                 <Input
+                  type="email"
                   placeholder={messages.vendors.contactEmail}
+                  aria-invalid={!!errors.contactEmail}
                   {...register("contactEmail")}
                 />
+                <FieldError error={errors.contactEmail} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.vendors.contactPhone}</span>
                 <Input
+                  type="tel"
                   placeholder={messages.vendors.contactPhone}
+                  aria-invalid={!!errors.contactPhone}
                   {...register("contactPhone")}
                 />
+                <FieldError error={errors.contactPhone} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.vendors.notes}</span>
@@ -171,7 +197,11 @@ export const VendorManager = ({
                   {...register("notes")}
                 />
               </label>
-              <Button className="rounded-full" type="submit">
+              <Button
+                className="rounded-full"
+                type="submit"
+                disabled={isSubmitting}
+              >
                 {selectedVendor
                   ? messages.vendors.save
                   : messages.vendors.create}
@@ -203,6 +233,11 @@ export const VendorManager = ({
             ))}
           </select>
         </div>
+        {filteredVendors.length === 0 ? (
+          <p className="py-8 text-center text-sm text-[var(--color-muted-copy)]">
+            {messages.vendors.empty}
+          </p>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-2">
           {filteredVendors.map((vendor) => (
             <Card
@@ -253,17 +288,21 @@ export const VendorManager = ({
                         if (!window.confirm(messages.common.confirmDelete)) {
                           return;
                         }
-                        await apiClient<{ vendorId: string }>(
-                          `/api/vendors/${vendor.id}`,
-                          {
-                            method: "DELETE",
-                          },
-                        );
-                        setVendors((current) =>
-                          current.filter(
-                            (candidate) => candidate.id !== vendor.id,
-                          ),
-                        );
+                        try {
+                          await apiClient<{ vendorId: string }>(
+                            `/api/vendors/${vendor.id}`,
+                            {
+                              method: "DELETE",
+                            },
+                          );
+                          setVendors((current) =>
+                            current.filter(
+                              (candidate) => candidate.id !== vendor.id,
+                            ),
+                          );
+                        } catch {
+                          toast.error(messages.common.actionError);
+                        }
                       }}
                     >
                       {messages.vendors.delete}

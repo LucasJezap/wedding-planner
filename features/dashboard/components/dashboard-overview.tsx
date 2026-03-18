@@ -1,25 +1,68 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
 
-import { motion } from "framer-motion";
 import {
   CalendarHeart,
   ChartPie,
   CircleDollarSign,
   ListTodo,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-} from "recharts";
 
 import { useLocale } from "@/components/locale-provider";
+
+const LazyBarChart = dynamic(
+  () =>
+    import("recharts").then((mod) => {
+      const {
+        Bar,
+        BarChart,
+        CartesianGrid,
+        ResponsiveContainer,
+        Tooltip,
+        XAxis,
+      } = mod;
+      const ChartWrapper = ({
+        data,
+        dataKey,
+        barName,
+      }: {
+        data: Array<Record<string, unknown>>;
+        dataKey: string;
+        barName: string;
+      }) => (
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              vertical={false}
+              stroke="#f0d6c5"
+            />
+            <XAxis dataKey="name" stroke="#74626a" />
+            <Tooltip />
+            <Bar
+              dataKey={dataKey}
+              name={barName}
+              fill="#e7c787"
+              radius={[10, 10, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+      ChartWrapper.displayName = "DashboardBarChart";
+      return { default: ChartWrapper };
+    }),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center text-sm text-[var(--color-muted-copy)]">
+        Ładowanie wykresu...
+      </div>
+    ),
+  },
+);
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SummaryCard } from "@/components/summary-card";
 import { canViewDashboardTasks } from "@/lib/access-control";
@@ -100,15 +143,10 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
           .filter(
             (card) => canSeeTasks || card.label !== messages.dashboard.tasks,
           )
-          .map((card, index) => (
-            <motion.div
-              key={card.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.08 }}
-            >
+          .map((card) => (
+            <div key={card.label}>
               <SummaryCard {...card} />
-            </motion.div>
+            </div>
           ))}
       </div>
       <div
@@ -144,35 +182,23 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               </div>
             </CardHeader>
             <CardContent className="h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f0d6c5"
-                  />
-                  <XAxis dataKey="name" stroke="#74626a" />
-                  <Tooltip />
-                  <Bar
-                    dataKey={
-                      chartFilter === "planned"
-                        ? "planned"
-                        : chartFilter === "paid"
-                          ? "actual"
-                          : "remaining"
-                    }
-                    name={
-                      chartFilter === "planned"
-                        ? messages.dashboard.planned
-                        : chartFilter === "paid"
-                          ? messages.budget.paid
-                          : messages.budget.remaining
-                    }
-                    fill="#e7c787"
-                    radius={[10, 10, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <LazyBarChart
+                data={chartData}
+                dataKey={
+                  chartFilter === "planned"
+                    ? "planned"
+                    : chartFilter === "paid"
+                      ? "actual"
+                      : "remaining"
+                }
+                barName={
+                  chartFilter === "planned"
+                    ? messages.dashboard.planned
+                    : chartFilter === "paid"
+                      ? messages.budget.paid
+                      : messages.budget.remaining
+                }
+              />
             </CardContent>
           </Card>
         ) : null}

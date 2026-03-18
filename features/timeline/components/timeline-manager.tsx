@@ -2,12 +2,16 @@
 
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
+import { FieldError } from "@/components/field-error";
 import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useTimelineAgenda } from "@/features/timeline/hooks/use-timeline-agenda";
+import { timelineEventInputSchema } from "@/features/timeline/types/timeline";
 import type { TimelineEventInput } from "@/features/timeline/types/timeline";
 import { canEditTimeline } from "@/lib/access-control";
 import type { TimelineEventRecord, UserRole } from "@/lib/planner-domain";
@@ -28,7 +32,12 @@ export const TimelineManager = ({
     useState<TimelineEventRecord | null>(null);
   const formRef = useRef<HTMLDivElement | null>(null);
   const agenda = useTimelineAgenda(events);
-  const { register, handleSubmit, reset } = useForm<TimelineEventInput>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<TimelineEventInput>({
     defaultValues: {
       title: "",
       description: "",
@@ -36,6 +45,7 @@ export const TimelineManager = ({
       location: "",
       visibleToGuests: true,
     },
+    resolver: zodResolver(timelineEventInputSchema) as never,
   });
 
   const resetForm = () => {
@@ -79,61 +89,80 @@ export const TimelineManager = ({
             <form
               className="space-y-3"
               onSubmit={handleSubmit(async (values) => {
-                const endpoint = selectedEvent
-                  ? `/api/timeline/${selectedEvent.id}`
-                  : "/api/timeline";
-                const method = selectedEvent ? "PATCH" : "POST";
-                const response = await apiClient<TimelineEventRecord>(
-                  endpoint,
-                  {
-                    method,
-                    body: JSON.stringify(values),
-                  },
-                );
-                setEvents((current) => {
-                  const exists = current.some(
-                    (candidate) => candidate.id === response.id,
+                try {
+                  const endpoint = selectedEvent
+                    ? `/api/timeline/${selectedEvent.id}`
+                    : "/api/timeline";
+                  const method = selectedEvent ? "PATCH" : "POST";
+                  const response = await apiClient<TimelineEventRecord>(
+                    endpoint,
+                    {
+                      method,
+                      body: JSON.stringify(values),
+                    },
                   );
-                  return exists
-                    ? current.map((candidate) =>
-                        candidate.id === response.id ? response : candidate,
-                      )
-                    : [...current, response];
-                });
-                resetForm();
+                  setEvents((current) => {
+                    const exists = current.some(
+                      (candidate) => candidate.id === response.id,
+                    );
+                    return exists
+                      ? current.map((candidate) =>
+                          candidate.id === response.id ? response : candidate,
+                        )
+                      : [...current, response];
+                  });
+                  resetForm();
+                } catch {
+                  toast.error(messages.common.actionError);
+                }
               })}
             >
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.timeline.eventTitle}</span>
                 <Input
                   placeholder={messages.timeline.eventTitle}
+                  aria-invalid={!!errors.title}
                   {...register("title")}
                 />
+                <FieldError error={errors.title} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.timeline.description}</span>
                 <Input
                   placeholder={messages.timeline.description}
+                  aria-invalid={!!errors.description}
                   {...register("description")}
                 />
+                <FieldError error={errors.description} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.timeline.createEvent}</span>
-                <Input type="datetime-local" {...register("startsAt")} />
+                <Input
+                  type="datetime-local"
+                  aria-invalid={!!errors.startsAt}
+                  {...register("startsAt")}
+                />
+                <FieldError error={errors.startsAt} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.timeline.location}</span>
                 <Input
                   placeholder={messages.timeline.location}
+                  aria-invalid={!!errors.location}
                   {...register("location")}
                 />
+                <FieldError error={errors.location} />
               </label>
               <label className="flex items-center gap-2 text-sm text-[var(--color-ink)]">
                 <input type="checkbox" {...register("visibleToGuests")} />
                 {messages.timeline.visibleToGuests}
               </label>
               <div className="flex gap-3">
-                <Button className="rounded-full" type="submit">
+                <Button
+                  className="rounded-full"
+                  type="submit"
+                  disabled={isSubmitting}
+                >
                   {selectedEvent
                     ? messages.timeline.saveEvent
                     : messages.timeline.createEvent}
@@ -149,6 +178,11 @@ export const TimelineManager = ({
         </Card>
       ) : null}
       <div className="space-y-4">
+        {agenda.length === 0 ? (
+          <p className="py-8 text-center text-sm text-[var(--color-muted-copy)]">
+            {messages.timeline.empty}
+          </p>
+        ) : null}
         {agenda.map((event) => (
           <Card
             key={event.id}
@@ -189,17 +223,21 @@ export const TimelineManager = ({
                       if (!window.confirm(messages.common.confirmDelete)) {
                         return;
                       }
-                      await apiClient<{ eventId: string }>(
-                        `/api/timeline/${event.id}`,
-                        {
-                          method: "DELETE",
-                        },
-                      );
-                      setEvents((current) =>
-                        current.filter(
-                          (candidate) => candidate.id !== event.id,
-                        ),
-                      );
+                      try {
+                        await apiClient<{ eventId: string }>(
+                          `/api/timeline/${event.id}`,
+                          {
+                            method: "DELETE",
+                          },
+                        );
+                        setEvents((current) =>
+                          current.filter(
+                            (candidate) => candidate.id !== event.id,
+                          ),
+                        );
+                      } catch {
+                        toast.error(messages.common.actionError);
+                      }
                     }}
                   >
                     {messages.timeline.delete}

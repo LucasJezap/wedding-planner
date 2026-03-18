@@ -2,12 +2,16 @@
 
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
+import { FieldError } from "@/components/field-error";
 import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useTaskBuckets } from "@/features/tasks/hooks/use-task-buckets";
+import { taskInputSchema } from "@/features/tasks/types/task";
 import type { TaskInput } from "@/features/tasks/types/task";
 import { canCreateTasks, canEditTasks } from "@/lib/access-control";
 import type { TaskRecord, UserRole } from "@/lib/planner-domain";
@@ -56,41 +60,51 @@ export const TaskManager = ({
     assignee: viewerRole === "WITNESS" ? "WITNESSES" : "COUPLE",
     notes: "",
   };
-  const { register, handleSubmit, reset } = useForm<TaskInput>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<TaskInput>({
     defaultValues: emptyTaskForm,
+    resolver: zodResolver(taskInputSchema) as never,
   });
 
   const onSubmit = handleSubmit(async (values) => {
-    const payload =
-      viewerRole === "WITNESS"
-        ? { ...values, assignee: "WITNESSES" as const }
-        : values;
+    try {
+      const payload =
+        viewerRole === "WITNESS"
+          ? { ...values, assignee: "WITNESSES" as const }
+          : values;
 
-    if (selectedTask) {
-      const updated = await apiClient<TaskRecord & { notes: string }>(
-        `/api/tasks/${selectedTask.id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify(payload),
-        },
-      );
-      setTasks((current) =>
-        sortTasks(
-          current.map((task) => (task.id === updated.id ? updated : task)),
-        ),
-      );
-    } else {
-      const created = await apiClient<TaskRecord & { notes: string }>(
-        "/api/tasks",
-        {
-          method: "POST",
-          body: JSON.stringify(payload),
-        },
-      );
-      setTasks((current) => sortTasks([...current, created]));
+      if (selectedTask) {
+        const updated = await apiClient<TaskRecord & { notes: string }>(
+          `/api/tasks/${selectedTask.id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          },
+        );
+        setTasks((current) =>
+          sortTasks(
+            current.map((task) => (task.id === updated.id ? updated : task)),
+          ),
+        );
+      } else {
+        const created = await apiClient<TaskRecord & { notes: string }>(
+          "/api/tasks",
+          {
+            method: "POST",
+            body: JSON.stringify(payload),
+          },
+        );
+        setTasks((current) => sortTasks([...current, created]));
+      }
+      setSelectedTask(null);
+      reset(emptyTaskForm);
+    } catch {
+      toast.error(messages.common.actionError);
     }
-    setSelectedTask(null);
-    reset(emptyTaskForm);
   });
 
   const visibleTasks = tasks.filter((task) => {
@@ -135,15 +149,19 @@ export const TaskManager = ({
                 <span>{messages.tasks.title}</span>
                 <Input
                   placeholder={messages.tasks.title}
+                  aria-invalid={!!errors.title}
                   {...register("title")}
                 />
+                <FieldError error={errors.title} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.tasks.description}</span>
                 <Input
                   placeholder={messages.tasks.description}
+                  aria-invalid={!!errors.description}
                   {...register("description")}
                 />
+                <FieldError error={errors.description} />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.tasks.due}</span>
@@ -214,7 +232,11 @@ export const TaskManager = ({
                 />
               </label>
               <div className="flex gap-3">
-                <Button className="rounded-full" type="submit">
+                <Button
+                  className="rounded-full"
+                  type="submit"
+                  disabled={isSubmitting}
+                >
                   {selectedTask ? messages.tasks.save : messages.tasks.create}
                 </Button>
                 {selectedTask ? (
@@ -243,6 +265,7 @@ export const TaskManager = ({
             onChange={(event) =>
               setStatusFilter(event.target.value as "ALL" | TaskInput["status"])
             }
+            aria-label={messages.tasks.status}
           >
             <option value="ALL">{messages.dashboard.filters.all}</option>
             <option value="TODO">{messages.enums.taskStatus.TODO}</option>
@@ -259,6 +282,7 @@ export const TaskManager = ({
                 event.target.value as "ALL" | TaskInput["assignee"],
               )
             }
+            aria-label={messages.tasks.assignee}
           >
             <option value="ALL">{messages.dashboard.filters.all}</option>
             <option value="GROOM">{messages.enums.taskAssignee.GROOM}</option>
@@ -287,6 +311,11 @@ export const TaskManager = ({
             </Card>
           ))}
         </div>
+        {visibleTasks.length === 0 ? (
+          <p className="py-8 text-center text-sm text-[var(--color-muted-copy)]">
+            {messages.tasks.empty}
+          </p>
+        ) : null}
         {visibleTasks.map((task) => (
           <Card
             key={task.id}
@@ -311,23 +340,29 @@ export const TaskManager = ({
                         if (!canEditTasks(viewerRole)) {
                           return;
                         }
-                        const updated = await apiClient<
-                          TaskRecord & { notes: string }
-                        >(`/api/tasks/${task.id}`, {
-                          method: "PATCH",
-                          body: JSON.stringify({
-                            ...task,
-                            dueDate: toDateTimeLocalValue(task.dueDate),
-                            status: task.status === "DONE" ? "TODO" : "DONE",
-                          }),
-                        });
-                        setTasks((current) =>
-                          sortTasks(
-                            current.map((candidate) =>
-                              candidate.id === updated.id ? updated : candidate,
+                        try {
+                          const updated = await apiClient<
+                            TaskRecord & { notes: string }
+                          >(`/api/tasks/${task.id}`, {
+                            method: "PATCH",
+                            body: JSON.stringify({
+                              ...task,
+                              dueDate: toDateTimeLocalValue(task.dueDate),
+                              status: task.status === "DONE" ? "TODO" : "DONE",
+                            }),
+                          });
+                          setTasks((current) =>
+                            sortTasks(
+                              current.map((candidate) =>
+                                candidate.id === updated.id
+                                  ? updated
+                                  : candidate,
+                              ),
                             ),
-                          ),
-                        );
+                          );
+                        } catch {
+                          toast.error(messages.common.actionError);
+                        }
                       }}
                     />
                     {messages.tasks.completed}
@@ -365,17 +400,21 @@ export const TaskManager = ({
                         if (!window.confirm(messages.common.confirmDelete)) {
                           return;
                         }
-                        await apiClient<{ taskId: string }>(
-                          `/api/tasks/${task.id}`,
-                          {
-                            method: "DELETE",
-                          },
-                        );
-                        setTasks((current) =>
-                          current.filter(
-                            (candidate) => candidate.id !== task.id,
-                          ),
-                        );
+                        try {
+                          await apiClient<{ taskId: string }>(
+                            `/api/tasks/${task.id}`,
+                            {
+                              method: "DELETE",
+                            },
+                          );
+                          setTasks((current) =>
+                            current.filter(
+                              (candidate) => candidate.id !== task.id,
+                            ),
+                          );
+                        } catch {
+                          toast.error(messages.common.actionError);
+                        }
                       }}
                     >
                       {messages.tasks.delete}

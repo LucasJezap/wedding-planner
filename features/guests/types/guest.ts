@@ -17,7 +17,24 @@ export const guestInputSchema = z.object({
   email: z.string().email().or(z.literal("")),
   phone: z.string().min(6).or(z.literal("")),
   notes: z.string().default(""),
+  groupName: z.string().optional().default(""),
 });
 
+export const bulkGuestInputSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("delete"),
+    guestIds: z.array(z.string().min(1)).min(1),
+  }),
+  z.object({
+    action: z.literal("update"),
+    guestIds: z.array(z.string().min(1)).min(1),
+    updates: z.object({
+      rsvpStatus: z.enum(["PENDING", "ATTENDING", "DECLINED"]).optional(),
+      groupName: z.string().optional(),
+    }),
+  }),
+]);
+
 export type GuestInput = z.input<typeof guestInputSchema>;
+export type BulkGuestInput = z.infer<typeof bulkGuestInputSchema>;
 export type { GuestView };

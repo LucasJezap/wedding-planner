@@ -6,6 +6,7 @@ import {
   type PublicRsvpInput,
 } from "@/features/public/types/public";
 import type {
+  FaqItem,
   PublicGuestLookupView,
   PublicWeddingView,
 } from "@/lib/planner-domain";
@@ -17,12 +18,26 @@ export const getPublicWeddingView = async (): Promise<PublicWeddingView> => {
     repository.listTimelineEvents(),
   ]);
 
+  let faqItems: FaqItem[] = [];
+  if (wedding.faqItems) {
+    try {
+      faqItems = JSON.parse(wedding.faqItems) as FaqItem[];
+    } catch {
+      faqItems = [];
+    }
+  }
+
   return {
     wedding,
     timeline: timeline
       .filter((event) => event.visibleToGuests)
       .sort((left, right) => left.startsAt.localeCompare(right.startsAt)),
     venue: `${wedding.venueName}, ${wedding.venueAddress}`,
+    aboutText: wedding.aboutText,
+    dressCode: wedding.dressCode,
+    faqItems,
+    ceremonyDate: wedding.ceremonyDate,
+    coupleNames: `${wedding.coupleOneName} & ${wedding.coupleTwoName}`,
   };
 };
 

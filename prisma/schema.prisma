@@ -105,6 +105,9 @@ model Wedding {
   venueName       String           @map("venue_name")
   venueAddress    String           @map("venue_address")
   ceremonyDate    DateTime         @map("ceremony_date")
+  aboutText       String?          @map("about_text")
+  dressCode       String?          @map("dress_code")
+  faqItems        String?          @map("faq_items")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
   users           User[]
@@ -140,6 +143,7 @@ model Guest {
   transportToVenue    Boolean       @default(false) @map("transport_to_venue")
   transportFromVenue  Boolean       @default(false) @map("transport_from_venue")
   tableId             String?       @map("table_id")
+  groupName           String?       @map("group_name")
   createdAt           DateTime      @default(now()) @map("created_at")
   updatedAt           DateTime      @updatedAt @map("updated_at")
   wedding             Wedding       @relation(fields: [weddingId], references: [id], onDelete: Cascade)

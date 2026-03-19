@@ -39,6 +39,7 @@ const guestFormSchema = z.object({
   email: z.string().email().or(z.literal("")),
   phone: z.string().min(6).or(z.literal("")),
   notes: z.string(),
+  groupName: z.string(),
 });
 
 type GuestFormValues = GuestInput & {
@@ -59,6 +60,47 @@ const emptyGuestForm: GuestFormValues = {
   email: "",
   phone: "",
   notes: "",
+  groupName: "",
+};
+
+const exportToExcel = async (
+  guests: GuestView[],
+  messages: Record<string, string>,
+) => {
+  const XLSX = await import("xlsx");
+  const rows = guests.map((g) => ({
+    [messages.name]: g.fullName,
+    [messages.rsvp]: g.rsvpStatus,
+    [messages.side]: g.side,
+    [messages.groupName]: g.groupName ?? "",
+    [messages.diet]: g.dietaryRestrictions.join(", "),
+    [messages.email]: g.email,
+    [messages.phone]: g.phone,
+    [messages.table]: g.tableName ?? "",
+    [messages.notesLabel]: g.notes,
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Guests");
+  XLSX.writeFile(wb, "guests.xlsx");
+};
+
+const exportToPdf = (guests: GuestView[], messages: Record<string, string>) => {
+  const win = window.open("", "_blank");
+  if (!win) return;
+  const rows = guests
+    .map(
+      (g) =>
+        `<tr><td>${g.fullName}</td><td>${g.rsvpStatus}</td><td>${g.side}</td><td>${g.groupName ?? ""}</td><td>${g.email}</td><td>${g.tableName ?? ""}</td></tr>`,
+    )
+    .join("");
+  win.document
+    .write(`<!DOCTYPE html><html><head><title>${messages.exportTitle}</title>
+    <style>body{font-family:system-ui;margin:2rem}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f5f5f5}</style></head><body>
+    <h1>${messages.exportTitle}</h1>
+    <table><thead><tr><th>${messages.name}</th><th>${messages.rsvp}</th><th>${messages.side}</th><th>${messages.groupName}</th><th>${messages.email}</th><th>${messages.table}</th></tr></thead><tbody>${rows}</tbody></table>
+    <script>window.print();window.close();<\/script></body></html>`);
+  win.document.close();
 };
 
 export const GuestManager = ({
@@ -74,8 +116,23 @@ export const GuestManager = ({
   const [selectedGuest, setSelectedGuest] = useState<GuestView | null>(null);
   const [search, setSearch] = useState("");
   const [side, setSide] = useState("ALL");
+  const [group, setGroup] = useState("ALL");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkRsvp, setBulkRsvp] = useState<
+    "PENDING" | "ATTENDING" | "DECLINED"
+  >("ATTENDING");
+  const [bulkGroup, setBulkGroup] = useState("");
   const formRef = useRef<HTMLDivElement | null>(null);
-  const filteredGuests = useGuestFilters(guests, search, side);
+  const filteredGuests = useGuestFilters(guests, search, side, group);
+
+  const uniqueGroups = useMemo(() => {
+    const groups = new Set<string>();
+    for (const g of guests) {
+      if (g.groupName) groups.add(g.groupName);
+    }
+    return [...groups].sort();
+  }, [guests]);
+
   const {
     register,
     handleSubmit,
@@ -140,6 +197,7 @@ export const GuestManager = ({
       email: guest.email,
       phone: guest.phone,
       notes: guest.notes,
+      groupName: guest.groupName ?? "",
     });
   };
 
@@ -175,6 +233,98 @@ export const GuestManager = ({
     } catch {
       toast.error(messages.common.actionError);
     }
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filteredGuests.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredGuests.map((g) => g.id)));
+    }
+  };
+
+  const refreshGuests = async () => {
+    try {
+      const fresh = await apiClient<GuestView[]>("/api/guests");
+      setGuests(fresh);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleBulkRsvp = async () => {
+    try {
+      await apiClient("/api/guests/bulk", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "update",
+          guestIds: [...selectedIds],
+          updates: { rsvpStatus: bulkRsvp },
+        }),
+      });
+      await refreshGuests();
+      setSelectedIds(new Set());
+    } catch {
+      toast.error(messages.common.actionError);
+    }
+  };
+
+  const handleBulkAssignGroup = async () => {
+    if (!bulkGroup.trim()) return;
+    try {
+      await apiClient("/api/guests/bulk", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "update",
+          guestIds: [...selectedIds],
+          updates: { groupName: bulkGroup.trim() },
+        }),
+      });
+      await refreshGuests();
+      setSelectedIds(new Set());
+      setBulkGroup("");
+    } catch {
+      toast.error(messages.common.actionError);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(messages.common.confirmDelete)) return;
+    try {
+      await apiClient("/api/guests/bulk", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "delete",
+          guestIds: [...selectedIds],
+        }),
+      });
+      await refreshGuests();
+      setSelectedIds(new Set());
+    } catch {
+      toast.error(messages.common.actionError);
+    }
+  };
+
+  const exportMessages = {
+    name: messages.guests.name,
+    rsvp: messages.guests.rsvp,
+    side: messages.guests.side,
+    groupName: messages.guests.groupName,
+    diet: messages.guests.diet,
+    email: messages.guests.email,
+    phone: messages.guests.phone,
+    table: messages.guests.table,
+    notesLabel: messages.guests.notesLabel,
+    exportTitle: messages.guests.exportTitle,
   };
 
   return (
@@ -285,6 +435,13 @@ export const GuestManager = ({
                 </div>
               </div>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                <span>{messages.guests.groupName}</span>
+                <Input
+                  placeholder={messages.guests.groupName}
+                  {...register("groupName")}
+                />
+              </label>
+              <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.guests.email}</span>
                 <Input
                   type="email"
@@ -354,10 +511,30 @@ export const GuestManager = ({
       ) : null}
       <Card className="border-white/70 bg-white/85">
         <CardHeader className="gap-4">
-          <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
-            {messages.guests.list}
-          </CardTitle>
-          <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
+          <div className="flex items-center justify-between">
+            <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
+              {messages.guests.list}
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  void exportToExcel(filteredGuests, exportMessages)
+                }
+              >
+                {messages.guests.exportExcel}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => exportToPdf(filteredGuests, exportMessages)}
+              >
+                {messages.guests.exportPdf}
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_160px_160px]">
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -378,14 +555,91 @@ export const GuestManager = ({
                 {messages.enums.guestSide.FRIENDS}
               </option>
             </select>
+            <select
+              className="h-10 rounded-xl border px-3"
+              value={group}
+              onChange={(event) => setGroup(event.target.value)}
+              aria-label={messages.guests.groupName}
+            >
+              <option value="ALL">{messages.guests.allGroups}</option>
+              {uniqueGroups.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
           </div>
         </CardHeader>
         <CardContent>
+          {/* Bulk action bar */}
+          {canEdit && selectedIds.size > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border bg-[var(--color-card-tint)] p-3">
+              <span className="text-sm font-medium text-[var(--color-ink)]">
+                {messages.guests.selected(selectedIds.size)}
+              </span>
+              <select
+                className="h-8 rounded-lg border px-2 text-sm"
+                value={bulkRsvp}
+                onChange={(e) =>
+                  setBulkRsvp(
+                    e.target.value as "PENDING" | "ATTENDING" | "DECLINED",
+                  )
+                }
+              >
+                <option value="ATTENDING">
+                  {messages.enums.rsvpStatus.ATTENDING}
+                </option>
+                <option value="PENDING">
+                  {messages.enums.rsvpStatus.PENDING}
+                </option>
+                <option value="DECLINED">
+                  {messages.enums.rsvpStatus.DECLINED}
+                </option>
+              </select>
+              <Button size="sm" variant="outline" onClick={handleBulkRsvp}>
+                {messages.guests.bulkChangeRsvp}
+              </Button>
+              <Input
+                value={bulkGroup}
+                onChange={(e) => setBulkGroup(e.target.value)}
+                placeholder={messages.guests.assignGroup}
+                className="h-8 w-40"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleBulkAssignGroup}
+              >
+                {messages.guests.bulkAssignGroup}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleBulkDelete}
+                className="ml-auto text-red-600"
+              >
+                {messages.guests.bulkDelete}
+              </Button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  {canEdit && (
+                    <TableHead className="w-10">
+                      <input
+                        type="checkbox"
+                        checked={
+                          filteredGuests.length > 0 &&
+                          selectedIds.size === filteredGuests.length
+                        }
+                        onChange={toggleAll}
+                      />
+                    </TableHead>
+                  )}
                   <TableHead>{messages.guests.name}</TableHead>
+                  <TableHead>{messages.guests.groupName}</TableHead>
                   <TableHead>{messages.guests.rsvp}</TableHead>
                   <TableHead>{messages.guests.diet}</TableHead>
                   <TableHead>{messages.guests.notesLabel}</TableHead>
@@ -407,6 +661,15 @@ export const GuestManager = ({
                       className="scroll-mt-40"
                       onDoubleClick={() => canEdit && handleEdit(guest)}
                     >
+                      {canEdit && (
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(guest.id)}
+                            onChange={() => toggleSelected(guest.id)}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div>
                           <p className="font-medium text-[var(--color-ink)]">
@@ -416,6 +679,9 @@ export const GuestManager = ({
                             {messages.enums.guestSide[guest.side]}
                           </p>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {guest.groupName || messages.guests.none}
                       </TableCell>
                       <TableCell>
                         <label className="flex items-center gap-2 text-sm text-[var(--color-ink)]">

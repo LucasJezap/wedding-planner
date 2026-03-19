@@ -57,6 +57,7 @@ export const createGuest = async (input: GuestInput): Promise<GuestView> => {
       invitationReceived: data.invitationReceived,
       transportToVenue: data.transportToVenue,
       transportFromVenue: data.transportFromVenue,
+      groupName: data.groupName,
     },
     {
       weddingId: wedding.id,
@@ -104,6 +105,7 @@ export const updateGuest = async (
       invitationReceived: data.invitationReceived,
       transportToVenue: data.transportToVenue,
       transportFromVenue: data.transportFromVenue,
+      groupName: data.groupName,
     },
     {
       email: data.email,
@@ -122,4 +124,23 @@ export const updateGuest = async (
 export const deleteGuest = async (guestId: string): Promise<void> => {
   const repository = getRepository();
   await repository.deleteGuest(guestId);
+};
+
+export const bulkUpdateGuests = async (
+  guestIds: string[],
+  updates: {
+    rsvpStatus?: "PENDING" | "ATTENDING" | "DECLINED";
+    groupName?: string;
+  },
+): Promise<GuestView[]> => {
+  const repository = getRepository();
+  await Promise.all(
+    guestIds.map((id) => repository.updateGuest(id, updates, {}, {})),
+  );
+  return buildGuestView();
+};
+
+export const bulkDeleteGuests = async (guestIds: string[]): Promise<void> => {
+  const repository = getRepository();
+  await Promise.all(guestIds.map((id) => repository.deleteGuest(id)));
 };

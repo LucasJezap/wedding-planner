@@ -15,7 +15,7 @@ describe("useGuestFilters", () => {
     }));
 
     const { result } = renderHook(() =>
-      useGuestFilters(guests, "Emma", "BRIDE"),
+      useGuestFilters(guests, "Emma", "BRIDE", "ALL"),
     );
     expect(result.current).toHaveLength(1);
   });

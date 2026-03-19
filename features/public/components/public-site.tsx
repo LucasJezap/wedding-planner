@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -14,6 +20,54 @@ import type {
 } from "@/features/public/types/public";
 import { apiClient } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
+
+const Countdown = ({ targetDate }: { targetDate: string }) => {
+  const { messages } = useLocale();
+  const [remaining, setRemaining] = useState({ days: 0, hours: 0, minutes: 0 });
+
+  useEffect(() => {
+    const calc = () => {
+      const diff = Math.max(0, new Date(targetDate).getTime() - Date.now());
+      setRemaining({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((diff / (1000 * 60)) % 60),
+      });
+    };
+    calc();
+    const interval = setInterval(calc, 60_000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  return (
+    <div className="flex gap-6 text-center">
+      <div>
+        <p className="font-display text-5xl text-[var(--color-ink)]">
+          {remaining.days}
+        </p>
+        <p className="text-sm text-[var(--color-muted-copy)]">
+          {messages.publicSite.days}
+        </p>
+      </div>
+      <div>
+        <p className="font-display text-5xl text-[var(--color-ink)]">
+          {remaining.hours}
+        </p>
+        <p className="text-sm text-[var(--color-muted-copy)]">
+          {messages.publicSite.hours}
+        </p>
+      </div>
+      <div>
+        <p className="font-display text-5xl text-[var(--color-ink)]">
+          {remaining.minutes}
+        </p>
+        <p className="text-sm text-[var(--color-muted-copy)]">
+          {messages.publicSite.minutes}
+        </p>
+      </div>
+    </div>
+  );
+};
 
 export const PublicSite = ({
   initialData,
@@ -46,6 +100,8 @@ export const PublicSite = ({
             {adminLabel}
           </Link>
         </div>
+
+        {/* Hero */}
         <section className="rounded-[2.5rem] border border-white/80 bg-white/80 p-8 shadow-[0_30px_120px_rgba(155,90,116,0.15)] backdrop-blur sm:p-12">
           <p className="text-sm uppercase tracking-[0.4em] text-[var(--color-dusty-rose)]">
             {messages.publicSite.eyebrow}
@@ -57,7 +113,50 @@ export const PublicSite = ({
             {messages.publicSite.description.replace("{venue}", data.venue)}
           </p>
         </section>
+
+        {/* Countdown */}
+        <Card className="border-white/70 bg-white/85">
+          <CardContent className="flex flex-col items-center gap-4 p-6">
+            <h2 className="font-display text-4xl text-[var(--color-ink)]">
+              {messages.publicSite.countdown}
+            </h2>
+            <p className="text-sm text-[var(--color-muted-copy)]">
+              {data.coupleNames}
+            </p>
+            <Countdown targetDate={data.ceremonyDate} />
+          </CardContent>
+        </Card>
+
+        {/* About & Dress Code */}
+        {(data.aboutText || data.dressCode) && (
+          <Card className="border-white/70 bg-white/85">
+            <CardContent className="space-y-4 p-6">
+              {data.aboutText && (
+                <>
+                  <h2 className="font-display text-4xl text-[var(--color-ink)]">
+                    {messages.publicSite.about}
+                  </h2>
+                  <p className="text-[var(--color-muted-copy)] leading-7">
+                    {data.aboutText}
+                  </p>
+                </>
+              )}
+              {data.dressCode && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-[var(--color-ink)]">
+                    {messages.publicSite.dressCode}:
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-[var(--color-card-tint)] px-3 py-1 text-sm text-[var(--color-dusty-rose)]">
+                    {data.dressCode}
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          {/* Schedule */}
           <Card className="border-white/70 bg-white/85">
             <CardContent className="space-y-4 p-6">
               <h2 className="font-display text-4xl text-[var(--color-ink)]">
@@ -81,6 +180,8 @@ export const PublicSite = ({
               ))}
             </CardContent>
           </Card>
+
+          {/* RSVP */}
           <Card className="border-white/70 bg-white/85">
             <CardContent className="space-y-4 p-6">
               <h2 className="font-display text-4xl text-[var(--color-ink)]">
@@ -189,6 +290,48 @@ export const PublicSite = ({
             </CardContent>
           </Card>
         </div>
+
+        {/* FAQ */}
+        {data.faqItems.length > 0 && (
+          <Card className="border-white/70 bg-white/85">
+            <CardContent className="space-y-4 p-6">
+              <h2 className="font-display text-4xl text-[var(--color-ink)]">
+                {messages.publicSite.faq}
+              </h2>
+              <Accordion className="w-full">
+                {data.faqItems.map((item, index) => (
+                  <AccordionItem key={index} value={`faq-${index}`}>
+                    <AccordionTrigger className="text-left text-[var(--color-ink)]">
+                      {item.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-[var(--color-muted-copy)]">
+                      {item.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Map */}
+        {data.venue && (
+          <Card className="border-white/70 bg-white/85">
+            <CardContent className="flex items-center justify-between p-6">
+              <h2 className="font-display text-4xl text-[var(--color-ink)]">
+                {messages.publicSite.map}
+              </h2>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.venue)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center justify-center rounded-full border border-white/70 bg-white/80 px-4 text-sm font-medium text-[var(--color-ink)] shadow-sm transition-colors hover:bg-white"
+              >
+                {messages.publicSite.viewOnMap}
+              </a>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </main>
   );

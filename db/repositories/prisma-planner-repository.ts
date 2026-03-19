@@ -81,6 +81,9 @@ const toWeddingRecord = (wedding: {
   venueName: string;
   venueAddress: string;
   ceremonyDate: Date;
+  aboutText?: string | null;
+  dressCode?: string | null;
+  faqItems?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): WeddingRecord => ({
@@ -92,6 +95,9 @@ const toWeddingRecord = (wedding: {
   venueName: wedding.venueName,
   venueAddress: wedding.venueAddress,
   ceremonyDate: wedding.ceremonyDate.toISOString(),
+  aboutText: wedding.aboutText ?? undefined,
+  dressCode: wedding.dressCode ?? undefined,
+  faqItems: wedding.faqItems ?? undefined,
   createdAt: wedding.createdAt.toISOString(),
   updatedAt: wedding.updatedAt.toISOString(),
 });
@@ -110,6 +116,7 @@ const toGuestRecord = (guest: {
   transportToVenue: boolean;
   transportFromVenue: boolean;
   tableId: string | null;
+  groupName?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): GuestRecord => ({
@@ -126,6 +133,7 @@ const toGuestRecord = (guest: {
   transportToVenue: guest.transportToVenue,
   transportFromVenue: guest.transportFromVenue,
   tableId: guest.tableId ?? undefined,
+  groupName: guest.groupName ?? undefined,
   createdAt: guest.createdAt.toISOString(),
   updatedAt: guest.updatedAt.toISOString(),
 });
@@ -576,6 +584,7 @@ export const prismaPlannerRepository: PlannerRepository = {
         transportToVenue: guest.transportToVenue,
         transportFromVenue: guest.transportFromVenue,
         tableId: guest.tableId,
+        groupName: guest.groupName,
       },
     });
 
@@ -613,6 +622,7 @@ export const prismaPlannerRepository: PlannerRepository = {
         transportToVenue: guest.transportToVenue,
         transportFromVenue: guest.transportFromVenue,
         tableId: guest.tableId,
+        groupName: guest.groupName,
       },
     });
 

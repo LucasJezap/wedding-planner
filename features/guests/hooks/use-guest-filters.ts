@@ -8,6 +8,7 @@ export const useGuestFilters = (
   guests: GuestView[],
   search: string,
   side: string,
+  group: string,
 ): GuestView[] => {
   const deferredSearch = useDeferredValue(search);
   const query = deferredSearch.trim().toLowerCase();
@@ -20,6 +21,8 @@ export const useGuestFilters = (
 
     const matchesSide = side === "ALL" || guest.side === side;
 
-    return matchesSearch && matchesSide;
+    const matchesGroup = group === "ALL" || (guest.groupName ?? "") === group;
+
+    return matchesSearch && matchesSide && matchesGroup;
   });
 };

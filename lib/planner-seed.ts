@@ -43,6 +43,26 @@ export const createPlannerSeed = (): PlannerState => {
       venueName: "Ivory Conservatory",
       venueAddress: "18 Garden Terrace, Warsaw",
       ceremonyDate: "2026-09-19T14:00:00.000Z",
+      aboutText:
+        "We met on a rainy afternoon in a bookshop and have been inseparable ever since. We can't wait to celebrate this next chapter with everyone we love.",
+      dressCode: "Black tie optional",
+      faqItems: JSON.stringify([
+        {
+          question: "Is there parking at the venue?",
+          answer:
+            "Yes, the Ivory Conservatory has a private lot with 80 spots. Overflow parking is available on Garden Terrace.",
+        },
+        {
+          question: "Can I bring a plus-one?",
+          answer:
+            "Due to limited seating we ask that you only bring guests who were explicitly named on your invitation.",
+        },
+        {
+          question: "What time should I arrive?",
+          answer:
+            "Doors open at 13:30 for a champagne welcome. The ceremony begins promptly at 14:00.",
+        },
+      ]),
       createdAt: now,
       updatedAt: now,
     },
@@ -621,6 +641,13 @@ export const createPlannerSeed = (): PlannerState => {
     updatedAt: now,
   });
 
+  const groupMap: Record<string, string> = {
+    "guest-1": "Hart Family",
+    "guest-2": "Hart Family",
+    "guest-3": "Cole Family",
+    "guest-4": "Cole Family",
+  };
+
   state.guests = state.guests.map((guest) => ({
     ...guest,
     rsvpToken: createHash("sha256")
@@ -632,6 +659,7 @@ export const createPlannerSeed = (): PlannerState => {
     invitationReceived: true,
     transportToVenue: false,
     transportFromVenue: false,
+    groupName: groupMap[guest.id] ?? "",
   }));
   state.budgetCategories = state.budgetCategories.map((category) => ({
     ...category,

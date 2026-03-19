@@ -58,9 +58,14 @@ export type WeddingRecord = {
   venueName: string;
   venueAddress: string;
   ceremonyDate: string;
+  aboutText?: string;
+  dressCode?: string;
+  faqItems?: string;
   createdAt: string;
   updatedAt: string;
 };
+
+export type FaqItem = { question: string; answer: string };
 
 export type ContactRecord = {
   id: string;
@@ -98,6 +103,7 @@ export type GuestRecord = {
   transportToVenue: boolean;
   transportFromVenue: boolean;
   tableId?: string;
+  groupName?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -322,6 +328,11 @@ export type PublicWeddingView = {
   wedding: WeddingRecord;
   timeline: TimelineEventRecord[];
   venue: string;
+  aboutText?: string;
+  dressCode?: string;
+  faqItems: FaqItem[];
+  ceremonyDate: string;
+  coupleNames: string;
 };
 
 export type PublicGuestLookupView = {
@@ -348,6 +359,7 @@ export type ImportGuestRow = {
   paymentCoverage?: PaymentCoverage;
   transportToVenue?: boolean;
   transportFromVenue?: boolean;
+  groupName?: string;
 };
 
 export const TASK_PRIORITIES: TaskPriority[] = ["LOW", "MEDIUM", "HIGH"];

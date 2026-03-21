@@ -71,11 +71,38 @@ export const resetAllRateLimits = (): void => {
   store.clear();
 };
 
-export const getRequestIp = (request: { headers: Headers }): string => {
-  const forwardedFor = request.headers.get("x-forwarded-for");
+type HeaderSource =
+  | Headers
+  | Record<string, string | string[] | undefined>
+  | undefined;
+
+const readHeader = (
+  headers: HeaderSource,
+  name: string,
+): string | undefined => {
+  if (!headers) {
+    return undefined;
+  }
+
+  if (headers instanceof Headers) {
+    return headers.get(name) ?? undefined;
+  }
+
+  const value =
+    headers[name] ?? headers[name.toLowerCase()] ?? headers[name.toUpperCase()];
+
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value;
+};
+
+export const getRequestIp = (request: { headers?: HeaderSource }): string => {
+  const forwardedFor = readHeader(request.headers, "x-forwarded-for");
   if (forwardedFor) {
     return forwardedFor.split(",")[0]?.trim() ?? "unknown";
   }
 
-  return request.headers.get("x-real-ip") ?? "unknown";
+  return readHeader(request.headers, "x-real-ip") ?? "unknown";
 };

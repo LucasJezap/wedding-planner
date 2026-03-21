@@ -1077,7 +1077,7 @@ export const prismaPlannerRepository: PlannerRepository = {
       where: { categoryId },
       select: { id: true },
     });
-    const expenseIds = expenses.map((expense) => expense.id);
+    const expenseIds = expenses.map((expense: { id: string }) => expense.id);
 
     await db.$transaction([
       db.payment.deleteMany({ where: { expenseId: { in: expenseIds } } }),

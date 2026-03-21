@@ -1,0 +1,18 @@
+CREATE TYPE "VendorStatus" AS ENUM (
+    'RESEARCH',
+    'CONTACTED',
+    'OFFER_RECEIVED',
+    'NEGOTIATING',
+    'BOOKED',
+    'REJECTED'
+);
+
+ALTER TABLE "vendors"
+ADD COLUMN "status" "VendorStatus" NOT NULL DEFAULT 'RESEARCH',
+ADD COLUMN "owner" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "booking_date" TIMESTAMP(3),
+ADD COLUMN "follow_up_date" TIMESTAMP(3),
+ADD COLUMN "deposit_amount" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN "offer_url" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "website_url" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "instagram_url" TEXT NOT NULL DEFAULT '';

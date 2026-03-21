@@ -18,6 +18,7 @@ describe("budget-service", () => {
   it("updates categories and expenses", async () => {
     const budget = await getBudgetOverview();
     const category = budget.categories[0]!;
+    const firstVendor = (await getBudgetOverview()).expenses[0]?.vendorId;
 
     const createdCategory = await createBudgetCategory({
       name: "Stationery",
@@ -37,13 +38,16 @@ describe("budget-service", () => {
 
     const createdExpense = await createExpense({
       categoryId: category.id,
+      vendorId: firstVendor ?? "",
       name: "Extra lighting",
       estimateMin: 500,
       estimateMax: 700,
       actualAmount: 600,
+      dueDate: "2026-06-10T12:00",
       notes: "Deposit",
     });
     expect(createdExpense.name).toBe("Extra lighting");
+    expect(createdExpense.dueDate).toContain("2026-06-10");
 
     const updatedExpense = await updateExpense(createdExpense.id, {
       actualAmount: 750,

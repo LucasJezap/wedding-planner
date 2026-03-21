@@ -17,8 +17,10 @@ describe("useBudgetTotals", () => {
       ...expense,
       categoryName: "Demo",
       categoryColor: "#D89BAE",
+      vendorName: undefined,
       paidAmount: 100,
       remainingAmount: expense.actualAmount - 100,
+      isOverdue: false,
       payments: [],
     }));
     const { result } = renderHook(() => useBudgetTotals(categories, expenses));

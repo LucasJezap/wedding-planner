@@ -3,10 +3,12 @@ import type {
   ContactRecord,
   ExpenseRecord,
   GuestRecord,
+  InvitationGroupRecord,
   NoteRecord,
   PaymentRecord,
   PlannerState,
   RsvpRecord,
+  TaskChecklistItemRecord,
   TaskRecord,
   TimelineEventRecord,
   UserInvitationRecord,
@@ -40,6 +42,7 @@ export type PlannerRepository = {
     >,
   ): Promise<UserRecord>;
   getWedding(): Promise<WeddingRecord>;
+  listInvitationGroups(): Promise<InvitationGroupRecord[]>;
   getGuestByRsvpToken(token: string): Promise<GuestRecord | null>;
   listGuests(): Promise<GuestRecord[]>;
   listContacts(): Promise<ContactRecord[]>;
@@ -52,6 +55,7 @@ export type PlannerRepository = {
   listExpenses(): Promise<ExpenseRecord[]>;
   listPayments(): Promise<PaymentRecord[]>;
   listTasks(): Promise<TaskRecord[]>;
+  listTaskChecklistItems(): Promise<TaskChecklistItemRecord[]>;
   listTimelineEvents(): Promise<TimelineEventRecord[]>;
   listRsvps(): Promise<RsvpRecord[]>;
   createGuest(
@@ -77,6 +81,19 @@ export type PlannerRepository = {
       >
     >,
   ): Promise<GuestRecord>;
+  createInvitationGroup(
+    group: Omit<InvitationGroupRecord, "id" | "createdAt" | "updatedAt">,
+  ): Promise<InvitationGroupRecord>;
+  updateInvitationGroup(
+    groupId: string,
+    group: Partial<
+      Omit<
+        InvitationGroupRecord,
+        "id" | "weddingId" | "createdAt" | "updatedAt"
+      >
+    >,
+  ): Promise<InvitationGroupRecord>;
+  deleteInvitationGroup(groupId: string): Promise<void>;
   deleteGuest(guestId: string): Promise<void>;
   createVendor(
     vendor: Omit<VendorRecord, "id" | "createdAt" | "updatedAt">,
@@ -105,6 +122,9 @@ export type PlannerRepository = {
   createTask(
     task: Omit<TaskRecord, "id" | "createdAt" | "updatedAt">,
     note: Omit<NoteRecord, "id" | "createdAt" | "updatedAt">,
+    checklistItems: Array<
+      Omit<TaskChecklistItemRecord, "id" | "taskId" | "createdAt" | "updatedAt">
+    >,
   ): Promise<TaskRecord>;
   updateTask(
     taskId: string,
@@ -116,6 +136,9 @@ export type PlannerRepository = {
         NoteRecord,
         "id" | "weddingId" | "taskId" | "createdAt" | "updatedAt"
       >
+    >,
+    checklistItems: Array<
+      Omit<TaskChecklistItemRecord, "id" | "taskId" | "createdAt" | "updatedAt">
     >,
   ): Promise<TaskRecord>;
   deleteTask(taskId: string): Promise<void>;

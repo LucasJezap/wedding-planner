@@ -26,10 +26,28 @@ describe("PublicSite", () => {
         guest: {
           id: guest.id,
           name: guest.fullName,
-          status: guest.rsvpStatus,
+          status: "ATTENDING",
+          guestCount: 2,
+          attendingChildren: 0,
+          plusOneName: "",
+          mealChoice: "",
+          dietaryNotes: "",
+          needsAccommodation: false,
           dietaryRestrictions: guest.dietaryRestrictions,
           transportToVenue: guest.transportToVenue,
           transportFromVenue: guest.transportFromVenue,
+          message: "",
+        },
+        invitationGroup: {
+          id: "group-hart",
+          name: "Hart Family",
+          invitedGuestCount: 2,
+          allowsPlusOne: false,
+          sharedResponse: true,
+          members: [
+            { id: guest.id, name: guest.fullName, status: guest.rsvpStatus },
+            { id: "guest-2", name: "Liam Hart", status: guest.rsvpStatus },
+          ],
         },
         message: "ok",
       })
@@ -38,9 +56,27 @@ describe("PublicSite", () => {
           id: guest.id,
           name: guest.fullName,
           status: "ATTENDING",
+          guestCount: 2,
+          attendingChildren: 1,
+          plusOneName: "Alex Hart",
+          mealChoice: "Vegetarian tasting menu",
+          dietaryNotes: "No peanuts",
+          needsAccommodation: true,
           dietaryRestrictions: guest.dietaryRestrictions,
-          transportToVenue: guest.transportToVenue,
-          transportFromVenue: guest.transportFromVenue,
+          transportToVenue: true,
+          transportFromVenue: true,
+          message: "See you soon",
+        },
+        invitationGroup: {
+          id: "group-hart",
+          name: "Hart Family",
+          invitedGuestCount: 2,
+          allowsPlusOne: false,
+          sharedResponse: true,
+          members: [
+            { id: guest.id, name: guest.fullName, status: "ATTENDING" },
+            { id: "guest-2", name: "Liam Hart", status: "ATTENDING" },
+          ],
         },
         message: "ok",
       });
@@ -53,6 +89,11 @@ describe("PublicSite", () => {
     );
 
     expect(screen.getByText("Plan dnia")).toBeInTheDocument();
+    expect(screen.getByText("Informacje organizacyjne")).toBeInTheDocument();
+    expect(screen.getByText("Parking")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Dodaj do kalendarza" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Panel admina" }),
     ).toBeInTheDocument();
@@ -63,11 +104,63 @@ describe("PublicSite", () => {
       guest.rsvpToken,
     );
     await user.click(screen.getByRole("button", { name: "Pokaż moje RSVP" }));
+    expect(screen.getByText("Grupa zaproszenia")).toBeInTheDocument();
+    await user.selectOptions(
+      screen.getByLabelText("Liczba potwierdzonych miejsc"),
+      "2",
+    );
+    await user.selectOptions(screen.getByLabelText("Liczba dzieci"), "1");
+    await user.type(
+      screen.getByPlaceholderText(
+        "Wpisz osobę towarzyszącą, jeśli została zaproszona",
+      ),
+      "Alex Hart",
+    );
+    await user.type(
+      screen.getByPlaceholderText(
+        "Np. menu klasyczne, wegetariańskie lub dziecięce",
+      ),
+      "Vegetarian tasting menu",
+    );
+    await user.type(
+      screen.getByPlaceholderText(
+        "Opisz alergie, ograniczenia lub dodatkowe potrzeby żywieniowe",
+      ),
+      "No peanuts",
+    );
+    await user.click(
+      screen.getByLabelText("Potrzebuję informacji o noclegu / noclegu"),
+    );
+    await user.click(screen.getByLabelText("Potrzebuję transportu na miejsce"));
+    await user.click(screen.getByLabelText("Potrzebuję transportu powrotnego"));
+    await user.type(
+      screen.getByPlaceholderText(
+        "Dodaj krótką wiadomość, pytanie lub ważną informację",
+      ),
+      "See you soon",
+    );
     await user.click(screen.getByRole("button", { name: "Wyślij RSVP" }));
 
     await waitFor(() => expect(apiClient).toHaveBeenCalled());
+    expect(vi.mocked(apiClient).mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        token: guest.rsvpToken,
+        status: "ATTENDING",
+        guestCount: 2,
+        attendingChildren: 1,
+        plusOneName: "Alex Hart",
+        mealChoice: "Vegetarian tasting menu",
+        dietaryNotes: "No peanuts",
+        needsAccommodation: true,
+        transportToVenue: true,
+        transportFromVenue: true,
+        message: "See you soon",
+      }),
+    });
     expect(
       screen.getByText("Dziękujemy, odpowiedź RSVP została zapisana."),
     ).toBeInTheDocument();
-  });
+    expect(screen.getByText("Hart Family")).toBeInTheDocument();
+  }, 10000);
 });

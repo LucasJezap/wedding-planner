@@ -8,9 +8,11 @@ import {
 import type {
   ExpenseRecord,
   GuestRecord,
+  InvitationGroupRecord,
   PaymentRecord,
   PlannerState,
   RsvpRecord,
+  TaskChecklistItemRecord,
   TaskRecord,
   TimelineEventRecord,
   VendorRecord,
@@ -121,6 +123,9 @@ export const memoryPlannerRepository: PlannerRepository = {
   async getWedding() {
     return state.wedding;
   },
+  async listInvitationGroups() {
+    return [...state.invitationGroups];
+  },
   async getGuestByRsvpToken(token) {
     return state.guests.find((guest) => guest.rsvpToken === token) ?? null;
   },
@@ -157,6 +162,9 @@ export const memoryPlannerRepository: PlannerRepository = {
   async listTasks() {
     return [...state.tasks];
   },
+  async listTaskChecklistItems() {
+    return [...state.taskChecklistItems];
+  },
   async listTimelineEvents() {
     return [...state.timelineEvents];
   },
@@ -186,6 +194,34 @@ export const memoryPlannerRepository: PlannerRepository = {
       updatedAt: now(),
     });
     return createdGuest;
+  },
+  async createInvitationGroup(group) {
+    const created: InvitationGroupRecord = {
+      ...group,
+      id: createId("invitation-group"),
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    state.invitationGroups.push(created);
+    return created;
+  },
+  async updateInvitationGroup(groupId, group) {
+    const target = required(
+      state.invitationGroups.find((candidate) => candidate.id === groupId),
+      "Invitation group",
+    );
+    Object.assign(target, updateRecord(target, group));
+    return target;
+  },
+  async deleteInvitationGroup(groupId) {
+    state.invitationGroups = state.invitationGroups.filter(
+      (group) => group.id !== groupId,
+    );
+    state.guests = state.guests.map((guest) =>
+      guest.invitationGroupId === groupId
+        ? updateRecord(guest, { invitationGroupId: undefined, groupName: "" })
+        : guest,
+    );
   },
   async updateGuest(guestId, guest, contact, note) {
     const target = required(
@@ -220,6 +256,14 @@ export const memoryPlannerRepository: PlannerRepository = {
       seat.guestId === guestId
         ? updateRecord(seat, { guestId: undefined })
         : seat,
+    );
+    const usedGroupIds = new Set(
+      state.guests
+        .map((guest) => guest.invitationGroupId)
+        .filter((groupId): groupId is string => Boolean(groupId)),
+    );
+    state.invitationGroups = state.invitationGroups.filter((group) =>
+      usedGroupIds.has(group.id),
     );
   },
   async createVendor(vendor, contact, note) {
@@ -275,7 +319,7 @@ export const memoryPlannerRepository: PlannerRepository = {
     );
     state.notes = state.notes.filter((note) => note.vendorId !== vendorId);
   },
-  async createTask(task, note) {
+  async createTask(task, note, checklistItems) {
     const createdTask: TaskRecord = {
       ...task,
       id: createId("task"),
@@ -290,9 +334,21 @@ export const memoryPlannerRepository: PlannerRepository = {
       createdAt: now(),
       updatedAt: now(),
     });
+    state.taskChecklistItems.push(
+      ...checklistItems.map(
+        (item, index): TaskChecklistItemRecord => ({
+          ...item,
+          id: createId("task-checklist"),
+          taskId: createdTask.id,
+          sortOrder: index,
+          createdAt: now(),
+          updatedAt: now(),
+        }),
+      ),
+    );
     return createdTask;
   },
-  async updateTask(taskId, task, note) {
+  async updateTask(taskId, task, note, checklistItems) {
     const target = required(
       state.tasks.find((candidate) => candidate.id === taskId),
       "Task",
@@ -304,11 +360,30 @@ export const memoryPlannerRepository: PlannerRepository = {
     if (targetNote) {
       Object.assign(targetNote, updateRecord(targetNote, note));
     }
+
+    state.taskChecklistItems = state.taskChecklistItems
+      .filter((item) => item.taskId !== taskId)
+      .concat(
+        checklistItems.map(
+          (item, index): TaskChecklistItemRecord => ({
+            ...item,
+            id: createId("task-checklist"),
+            taskId,
+            sortOrder: index,
+            createdAt: now(),
+            updatedAt: now(),
+          }),
+        ),
+      );
+
     return target;
   },
   async deleteTask(taskId) {
     state.tasks = state.tasks.filter((task) => task.id !== taskId);
     state.notes = state.notes.filter((note) => note.taskId !== taskId);
+    state.taskChecklistItems = state.taskChecklistItems.filter(
+      (item) => item.taskId !== taskId,
+    );
   },
   async updateBudgetCategory(categoryId, category) {
     const target = required(
@@ -587,7 +662,11 @@ export const memoryPlannerRepository: PlannerRepository = {
       Object.assign(existing, updateRecord(existing, rsvp));
       state.guests = state.guests.map((guest) =>
         guest.id === rsvp.guestId
-          ? updateRecord(guest, { rsvpStatus: rsvp.status })
+          ? updateRecord(guest, {
+              rsvpStatus: rsvp.status,
+              transportToVenue: rsvp.transportToVenue,
+              transportFromVenue: rsvp.transportFromVenue,
+            })
           : guest,
       );
       return existing;
@@ -602,7 +681,11 @@ export const memoryPlannerRepository: PlannerRepository = {
     state.rsvps.push(created);
     state.guests = state.guests.map((guest) =>
       guest.id === rsvp.guestId
-        ? updateRecord(guest, { rsvpStatus: rsvp.status })
+        ? updateRecord(guest, {
+            rsvpStatus: rsvp.status,
+            transportToVenue: rsvp.transportToVenue,
+            transportFromVenue: rsvp.transportFromVenue,
+          })
         : guest,
     );
     return created;

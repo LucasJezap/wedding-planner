@@ -5,9 +5,14 @@ import { createPlannerSeed } from "@/lib/planner-seed";
 
 describe("useTaskBuckets", () => {
   it("counts task statuses", () => {
-    const tasks = createPlannerSeed().tasks.map((task) => ({
+    const seed = createPlannerSeed();
+    const tasks = seed.tasks.map((task) => ({
       ...task,
       notes: "",
+      checklistItems: seed.taskChecklistItems.filter(
+        (item) => item.taskId === task.id,
+      ),
+      blockedByTaskTitles: [],
     }));
     const { result } = renderHook(() => useTaskBuckets(tasks));
     expect(result.current.todo).toBe(1);

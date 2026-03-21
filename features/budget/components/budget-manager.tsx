@@ -79,8 +79,12 @@ import type {
   PaymentInput,
 } from "@/features/budget/types/budget";
 import { apiClient } from "@/lib/api-client";
-import { formatCurrency } from "@/lib/format";
-import type { BudgetCategoryView, ExpenseView } from "@/lib/planner-domain";
+import { formatCurrency, formatDate } from "@/lib/format";
+import type {
+  BudgetCategoryView,
+  ExpenseView,
+  VendorView,
+} from "@/lib/planner-domain";
 
 const categoryPalette = [
   "#D89BAE",
@@ -123,9 +127,11 @@ const categoryPalette = [
 export const BudgetManager = ({
   initialCategories,
   initialExpenses,
+  vendors,
 }: {
   initialCategories: BudgetCategoryView[];
   initialExpenses: ExpenseView[];
+  vendors: VendorView[];
 }) => {
   const { locale, messages } = useLocale();
   const [categories, setCategories] = useState(initialCategories);
@@ -184,10 +190,12 @@ export const BudgetManager = ({
   } = useForm<ExpenseInput>({
     defaultValues: {
       categoryId: initialCategories[0]?.id ?? "",
+      vendorId: "",
       name: "",
       estimateMin: 0,
       estimateMax: 0,
       actualAmount: 0,
+      dueDate: "",
       notes: "",
     },
     resolver: zodResolver(expenseInputSchema) as never,
@@ -222,10 +230,12 @@ export const BudgetManager = ({
     setSelectedExpense(null);
     resetExpense({
       categoryId: categories[0]?.id ?? "",
+      vendorId: "",
       name: "",
       estimateMin: 0,
       estimateMax: 0,
       actualAmount: 0,
+      dueDate: "",
       notes: "",
     });
   };
@@ -249,10 +259,12 @@ export const BudgetManager = ({
     setSelectedExpense(expense);
     resetExpense({
       categoryId: expense.categoryId,
+      vendorId: expense.vendorId ?? "",
       name: expense.name,
       estimateMin: expense.estimateMin,
       estimateMax: expense.estimateMax,
       actualAmount: expense.actualAmount,
+      dueDate: expense.dueDate ? expense.dueDate.slice(0, 16) : "",
       notes: expense.notes,
     });
     expenseFormRef.current?.scrollIntoView({
@@ -512,6 +524,20 @@ export const BudgetManager = ({
                 </select>
               </label>
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                <span>{messages.budget.expenseVendor}</span>
+                <select
+                  className="h-10 w-full rounded-xl border px-3"
+                  {...registerExpense("vendorId")}
+                >
+                  <option value="">{messages.budget.noVendor}</option>
+                  {vendors.map((vendor) => (
+                    <option key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.expenseName}</span>
                 <Input
                   aria-invalid={!!expenseErrors.name}
@@ -547,6 +573,10 @@ export const BudgetManager = ({
                   />
                 </label>
               </div>
+              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                <span>{messages.budget.expenseDueDate}</span>
+                <Input type="datetime-local" {...registerExpense("dueDate")} />
+              </label>
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.expenseNotes}</span>
                 <Input {...registerExpense("notes")} />
@@ -769,6 +799,24 @@ export const BudgetManager = ({
                     <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
                       {expense.categoryName}
                     </p>
+                    {expense.vendorName ? (
+                      <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
+                        {messages.budget.vendorLabel(expense.vendorName)}
+                      </p>
+                    ) : null}
+                    {expense.dueDate ? (
+                      <p
+                        className={`mt-2 text-sm ${
+                          expense.isOverdue
+                            ? "text-red-600"
+                            : "text-[var(--color-muted-copy)]"
+                        }`}
+                      >
+                        {messages.budget.dueDateLabel(
+                          formatDate(expense.dueDate, locale),
+                        )}
+                      </p>
+                    ) : null}
                     {expense.notes ? (
                       <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
                         {expense.notes}

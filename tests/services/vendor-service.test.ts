@@ -18,18 +18,30 @@ describe("vendor-service", () => {
       name: "Velvet Strings",
       categoryId: categories[0]!.id,
       cost: 1800,
+      status: "CONTACTED",
+      owner: "Lukasz",
+      bookingDate: "",
+      followUpDate: "2026-04-12T10:00",
+      depositAmount: 300,
+      offerUrl: "https://example.com/velvet-offer",
+      websiteUrl: "https://velvetstrings.example.com",
+      instagramUrl: "https://instagram.com/velvetstrings",
       contactEmail: "hello@velvetstrings.com",
       contactPhone: "+48 600 333 333",
       notes: "Ceremony quartet",
     });
 
     expect(created.name).toBe("Velvet Strings");
+    expect(created.status).toBe("CONTACTED");
+    expect(created.depositAmount).toBe(300);
 
     const updated = await updateVendor(created.id, {
       cost: 2200,
+      status: "BOOKED",
     });
 
     expect(updated.cost).toBe(2200);
+    expect(updated.status).toBe("BOOKED");
 
     await deleteVendor(created.id);
     await expect(listVendors()).resolves.toHaveLength(3);

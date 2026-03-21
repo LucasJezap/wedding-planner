@@ -47,6 +47,18 @@ describe("authenticateUser", () => {
     ).resolves.toBeNull();
   });
 
+  it("rate limits repeated failed sign-in attempts", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await expect(
+        authenticateUser(DEMO_CREDENTIALS.email, "wrong-password", "test-ip"),
+      ).resolves.toBeNull();
+    }
+
+    await expect(
+      authenticateUser(DEMO_CREDENTIALS.email, "wrong-password", "test-ip"),
+    ).rejects.toThrow("Too many login attempts");
+  });
+
   it("creates and updates managed accounts", async () => {
     const invitation = await createAccountInvitation({
       ...invitationInput("readonly@example.com", "READ_ONLY"),

@@ -66,6 +66,15 @@ enum VendorCategoryType {
   OTHER
 }
 
+enum VendorStatus {
+  RESEARCH
+  CONTACTED
+  OFFER_RECEIVED
+  NEGOTIATING
+  BOOKED
+  REJECTED
+}
+
 model User {
   id           String   @id @default(cuid())
   weddingId    String
@@ -108,10 +117,18 @@ model Wedding {
   aboutText       String?          @map("about_text")
   dressCode       String?          @map("dress_code")
   faqItems        String?          @map("faq_items")
+  parkingInfo     String?          @map("parking_info")
+  accommodationInfo String?        @map("accommodation_info")
+  registryInfo    String?          @map("registry_info")
+  transportInfo   String?          @map("transport_info")
+  coordinatorName String?          @map("coordinator_name")
+  coordinatorPhone String?         @map("coordinator_phone")
+  coordinatorEmail String?         @map("coordinator_email")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
   users           User[]
   userInvitations UserInvitation[]
+  invitationGroups InvitationGroup[]
   guests          Guest[]
   weddingTables   WeddingTable[]
   seats           Seat[]
@@ -121,12 +138,38 @@ model Wedding {
   expenses        Expense[]
   payments        Payment[]
   tasks           Task[]
+  taskChecklistItems TaskChecklistItem[]
   timelineEvents  TimelineEvent[]
   contacts        Contact[]
   rsvps           Rsvp[]
   notes           Note[]
 
   @@map("weddings")
+}
+
+model InvitationGroup {
+  id                String   @id @default(cuid())
+  weddingId         String   @map("wedding_id")
+  name              String
+  invitedGuestCount Int      @default(1) @map("invited_guest_count")
+  allowsPlusOne     Boolean  @default(false) @map("allows_plus_one")
+  notes             String   @default("")
+  sharedRsvpStatus  RsvpStatus @default(PENDING) @map("shared_rsvp_status")
+  attendingChildren Int      @default(0) @map("attending_children")
+  plusOneName       String   @default("") @map("plus_one_name")
+  mealChoice        String   @default("") @map("meal_choice")
+  dietaryNotes      String   @default("") @map("dietary_notes")
+  needsAccommodation Boolean @default(false) @map("needs_accommodation")
+  transportToVenue  Boolean  @default(false) @map("transport_to_venue")
+  transportFromVenue Boolean @default(false) @map("transport_from_venue")
+  message           String   @default("")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  wedding           Wedding  @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  guests            Guest[]
+
+  @@unique([weddingId, name])
+  @@map("invitation_groups")
 }
 
 model Guest {
@@ -142,11 +185,13 @@ model Guest {
   invitationReceived  Boolean       @default(false) @map("invitation_received")
   transportToVenue    Boolean       @default(false) @map("transport_to_venue")
   transportFromVenue  Boolean       @default(false) @map("transport_from_venue")
+  invitationGroupId   String?       @map("invitation_group_id")
   tableId             String?       @map("table_id")
   groupName           String?       @map("group_name")
   createdAt           DateTime      @default(now()) @map("created_at")
   updatedAt           DateTime      @updatedAt @map("updated_at")
   wedding             Wedding       @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  invitationGroup     InvitationGroup? @relation(fields: [invitationGroupId], references: [id])
   weddingTable        WeddingTable? @relation(fields: [tableId], references: [id])
   seat                Seat?
   contact             Contact?
@@ -207,10 +252,19 @@ model Vendor {
   categoryId       String         @map("category_id")
   name             String
   cost             Decimal        @db.Decimal(10, 2)
+  status           VendorStatus   @default(RESEARCH)
+  owner            String         @default("")
+  bookingDate      DateTime?      @map("booking_date")
+  followUpDate     DateTime?      @map("follow_up_date")
+  depositAmount    Decimal        @default(0) @map("deposit_amount") @db.Decimal(10, 2)
+  offerUrl         String         @default("") @map("offer_url")
+  websiteUrl       String         @default("") @map("website_url")
+  instagramUrl     String         @default("") @map("instagram_url")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
   wedding          Wedding        @relation(fields: [weddingId], references: [id], onDelete: Cascade)
   category         VendorCategory @relation(fields: [categoryId], references: [id])
+  expenses         Expense[]
   contact          Contact?
   note             Note?
 
@@ -236,15 +290,18 @@ model Expense {
   id          String         @id @default(cuid())
   weddingId   String         @map("wedding_id")
   categoryId  String         @map("category_id")
+  vendorId    String?        @map("vendor_id")
   name        String
   estimateMin Decimal        @db.Decimal(10, 2) @map("estimate_min")
   estimateMax Decimal        @db.Decimal(10, 2) @map("estimate_max")
   actualAmount Decimal       @db.Decimal(10, 2) @map("actual_amount")
+  dueDate     DateTime?      @map("due_date")
   notes       String         @default("")
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
   wedding     Wedding        @relation(fields: [weddingId], references: [id], onDelete: Cascade)
   category    BudgetCategory @relation(fields: [categoryId], references: [id])
+  vendor      Vendor?        @relation(fields: [vendorId], references: [id])
   payments    Payment[]
 
   @@map("expenses")
@@ -274,12 +331,31 @@ model Task {
   priority    TaskPriority
   status      TaskStatus
   assignee    TaskAssignee @default(COUPLE)
+  tags        String[]     @default([])
+  blockedByTaskIds String[] @default([]) @map("blocked_by_task_ids")
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
   wedding     Wedding      @relation(fields: [weddingId], references: [id], onDelete: Cascade)
   note        Note?
+  checklistItems TaskChecklistItem[]
 
   @@map("tasks")
+}
+
+model TaskChecklistItem {
+  id         String   @id @default(cuid())
+  weddingId  String   @map("wedding_id")
+  taskId     String   @map("task_id")
+  title      String
+  completed  Boolean  @default(false)
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  wedding    Wedding  @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, sortOrder])
+  @@map("task_checklist_items")
 }
 
 model TimelineEvent {
@@ -319,6 +395,14 @@ model Rsvp {
   guestId    String     @unique @map("guest_id")
   status     RsvpStatus
   guestCount Int        @default(1) @map("guest_count")
+  attendingChildren Int @default(0) @map("attending_children")
+  plusOneName String    @default("") @map("plus_one_name")
+  mealChoice String     @default("") @map("meal_choice")
+  dietaryNotes String   @default("") @map("dietary_notes")
+  needsAccommodation Boolean @default(false) @map("needs_accommodation")
+  transportToVenue Boolean @default(false) @map("transport_to_venue")
+  transportFromVenue Boolean @default(false) @map("transport_from_venue")
+  message    String     @default("")
   createdAt  DateTime   @default(now()) @map("created_at")
   updatedAt  DateTime   @updatedAt @map("updated_at")
   wedding    Wedding    @relation(fields: [weddingId], references: [id], onDelete: Cascade)

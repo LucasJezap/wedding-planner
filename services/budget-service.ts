@@ -28,6 +28,7 @@ export const getBudgetOverview = async (): Promise<{
     repository.listExpenses(),
     repository.listPayments(),
   ]);
+  const vendors = await repository.listVendors();
 
   const expenseViews: ExpenseView[] = expenses
     .map((expense) => {
@@ -38,13 +39,21 @@ export const getBudgetOverview = async (): Promise<{
       const category = categories.find(
         (candidate) => candidate.id === expense.categoryId,
       );
+      const vendor = vendors.find(
+        (candidate) => candidate.id === expense.vendorId,
+      );
 
       return {
         ...expense,
         categoryName: category?.name ?? "",
         categoryColor: category?.color ?? "#D89BAE",
+        vendorName: vendor?.name,
         paidAmount,
         remainingAmount: Math.max(expense.actualAmount - paidAmount, 0),
+        isOverdue:
+          Boolean(expense.dueDate) &&
+          Math.max(expense.actualAmount - paidAmount, 0) > 0 &&
+          new Date(expense.dueDate!).getTime() < Date.now(),
         payments: expensePayments,
       };
     })
@@ -127,10 +136,12 @@ export const createExpense = async (
   const created = await repository.createExpense({
     weddingId: wedding.id,
     categoryId: data.categoryId,
+    vendorId: data.vendorId || undefined,
     name: data.name,
     estimateMin: data.estimateMin,
     estimateMax: data.estimateMax,
     actualAmount: data.actualAmount,
+    dueDate: data.dueDate ? fromDateTimeLocalValue(data.dueDate) : undefined,
     notes: data.notes,
   });
 
@@ -152,10 +163,12 @@ export const updateExpense = async (
 
   const data = expenseInputSchema.parse({
     categoryId: current.categoryId,
+    vendorId: current.vendorId ?? "",
     name: current.name,
     estimateMin: current.estimateMin,
     estimateMax: current.estimateMax,
     actualAmount: current.actualAmount,
+    dueDate: current.dueDate ? current.dueDate.slice(0, 16) : "",
     notes: current.notes,
     ...input,
   });

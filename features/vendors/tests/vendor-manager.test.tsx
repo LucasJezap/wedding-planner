@@ -18,6 +18,13 @@ describe("VendorManager", () => {
       ...vendors[0]!,
       id: "vendor-new",
       name: "Velvet Studio",
+      status: "CONTACTED",
+      owner: "Lukasz",
+      depositAmount: 500,
+      followUpDate: "2026-04-12T10:00:00.000Z",
+      offerUrl: "https://example.com/offer",
+      websiteUrl: "https://example.com",
+      instagramUrl: "https://instagram.com/example",
     });
 
     render(
@@ -41,6 +48,10 @@ describe("VendorManager", () => {
     await user.type(
       screen.getByPlaceholderText("Telefon kontaktowy"),
       "555-123",
+    );
+    await user.type(
+      screen.getByPlaceholderText("Osoba odpowiedzialna"),
+      "Lukasz",
     );
     await user.click(
       screen.getByRole("button", { name: "Utwórz usługodawcę" }),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -18,6 +18,10 @@ import type { TimelineEventRecord, UserRole } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
 import { toDateTimeLocalValue } from "@/lib/date-time";
 import { formatDateTime } from "@/lib/format";
+import {
+  removeLocalStorageValue,
+  useLocalStorage,
+} from "@/hooks/use-local-storage";
 
 export const TimelineManager = ({
   initialEvents,
@@ -31,11 +35,16 @@ export const TimelineManager = ({
   const [selectedEvent, setSelectedEvent] =
     useState<TimelineEventRecord | null>(null);
   const formRef = useRef<HTMLDivElement | null>(null);
+  const restoredDraftRef = useRef(false);
   const agenda = useTimelineAgenda(events);
+  const draftStorageKey = `timeline-draft:${viewerRole}`;
+  const [draft, setDraft, draftHydrated] =
+    useLocalStorage<TimelineEventInput | null>(draftStorageKey, null);
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<TimelineEventInput>({
     defaultValues: {
@@ -50,6 +59,8 @@ export const TimelineManager = ({
 
   const resetForm = () => {
     setSelectedEvent(null);
+    setDraft(null);
+    removeLocalStorageValue(draftStorageKey);
     reset({
       title: "",
       description: "",
@@ -59,8 +70,42 @@ export const TimelineManager = ({
     });
   };
 
+  const watchedValues = watch();
+  const draftSnapshot = JSON.stringify(watchedValues);
+
+  useEffect(() => {
+    if (!draftHydrated || restoredDraftRef.current || selectedEvent || !draft) {
+      return;
+    }
+
+    reset(draft);
+    restoredDraftRef.current = true;
+  }, [draft, draftHydrated, reset, selectedEvent]);
+
+  useEffect(() => {
+    if (!draftHydrated || selectedEvent) {
+      return;
+    }
+
+    const nextDraft = JSON.parse(draftSnapshot) as TimelineEventInput;
+
+    if (
+      nextDraft.title.trim() ||
+      nextDraft.description.trim() ||
+      nextDraft.location.trim()
+    ) {
+      setDraft(nextDraft);
+      return;
+    }
+
+    setDraft(null);
+    removeLocalStorageValue(draftStorageKey);
+  }, [draftHydrated, draftStorageKey, draftSnapshot, selectedEvent, setDraft]);
+
   const handleEdit = (event: TimelineEventRecord) => {
     setSelectedEvent(event);
+    setDraft(null);
+    removeLocalStorageValue(draftStorageKey);
     reset({
       title: event.title,
       description: event.description,
@@ -111,6 +156,8 @@ export const TimelineManager = ({
                         )
                       : [...current, response];
                   });
+                  setDraft(null);
+                  removeLocalStorageValue(draftStorageKey);
                   resetForm();
                 } catch {
                   toast.error(messages.common.actionError);
@@ -178,6 +225,14 @@ export const TimelineManager = ({
         </Card>
       ) : null}
       <div className="space-y-4">
+        <div className="flex justify-end">
+          <a
+            href="/api/calendar"
+            className="inline-flex h-10 items-center justify-center rounded-full border border-white/70 bg-white/80 px-4 text-sm font-medium text-[var(--color-ink)] shadow-sm transition-colors hover:bg-white"
+          >
+            {messages.timeline.exportCalendar}
+          </a>
+        </div>
         {agenda.length === 0 ? (
           <p className="py-8 text-center text-sm text-[var(--color-muted-copy)]">
             {messages.timeline.empty}

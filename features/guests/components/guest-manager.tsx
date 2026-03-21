@@ -22,7 +22,11 @@ import {
 import { useGuestFilters } from "@/features/guests/hooks/use-guest-filters";
 import type { GuestInput } from "@/features/guests/types/guest";
 import { canEditGuests } from "@/lib/access-control";
-import type { GuestView, UserRole } from "@/lib/planner-domain";
+import type {
+  GuestView,
+  InvitationGroupView,
+  UserRole,
+} from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
 
 const guestFormSchema = z.object({
@@ -40,6 +44,9 @@ const guestFormSchema = z.object({
   phone: z.string().min(6).or(z.literal("")),
   notes: z.string(),
   groupName: z.string(),
+  invitedGuestCount: z.coerce.number().int().min(1).max(10),
+  allowsPlusOne: z.boolean(),
+  groupNotes: z.string(),
 });
 
 type GuestFormValues = GuestInput & {
@@ -61,6 +68,9 @@ const emptyGuestForm: GuestFormValues = {
   phone: "",
   notes: "",
   groupName: "",
+  invitedGuestCount: 1,
+  allowsPlusOne: false,
+  groupNotes: "",
 };
 
 const exportToExcel = async (
@@ -105,14 +115,17 @@ const exportToPdf = (guests: GuestView[], messages: Record<string, string>) => {
 
 export const GuestManager = ({
   initialGuests,
+  initialGroups,
   viewerRole,
 }: {
   initialGuests: GuestView[];
+  initialGroups: InvitationGroupView[];
   viewerRole: UserRole;
 }) => {
   const { messages } = useLocale();
   const canEdit = canEditGuests(viewerRole);
   const [guests, setGuests] = useState(initialGuests);
+  const [groups, setGroups] = useState(initialGroups);
   const [selectedGuest, setSelectedGuest] = useState<GuestView | null>(null);
   const [search, setSearch] = useState("");
   const [side, setSide] = useState("ALL");
@@ -169,6 +182,12 @@ export const GuestManager = ({
         setGuests((current) => [...current, created]);
       }
 
+      try {
+        setGroups(await apiClient<InvitationGroupView[]>("/api/guest-groups"));
+      } catch {
+        /* ignore */
+      }
+
       setSelectedGuest(null);
       reset(emptyGuestForm);
     } catch {
@@ -198,6 +217,9 @@ export const GuestManager = ({
       phone: guest.phone,
       notes: guest.notes,
       groupName: guest.groupName ?? "",
+      invitedGuestCount: guest.invitedGuestCount ?? 1,
+      allowsPlusOne: guest.allowsPlusOne ?? false,
+      groupNotes: guest.groupNotes ?? "",
     });
   };
 
@@ -256,6 +278,9 @@ export const GuestManager = ({
     try {
       const fresh = await apiClient<GuestView[]>("/api/guests");
       setGuests(fresh);
+      const freshGroups =
+        await apiClient<InvitationGroupView[]>("/api/guest-groups");
+      setGroups(freshGroups);
     } catch {
       /* ignore */
     }
@@ -441,6 +466,30 @@ export const GuestManager = ({
                   {...register("groupName")}
                 />
               </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                  <span>{messages.guests.invitedGuestCount}</span>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="10"
+                    {...register("invitedGuestCount", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                </label>
+                <label className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm text-[var(--color-ink)]">
+                  <input type="checkbox" {...register("allowsPlusOne")} />
+                  {messages.guests.allowsPlusOne}
+                </label>
+              </div>
+              <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                <span>{messages.guests.groupNotes}</span>
+                <Input
+                  placeholder={messages.guests.groupNotes}
+                  {...register("groupNotes")}
+                />
+              </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.guests.email}</span>
                 <Input
@@ -571,6 +620,47 @@ export const GuestManager = ({
           </div>
         </CardHeader>
         <CardContent>
+          {groups.length > 0 ? (
+            <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {groups.map((invitationGroup) => (
+                <div
+                  key={invitationGroup.id}
+                  className="rounded-[1.4rem] border border-[var(--color-card-tint)] bg-[var(--color-card-tint)]/35 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-2xl text-[var(--color-ink)]">
+                        {invitationGroup.name}
+                      </h3>
+                      <p className="text-sm text-[var(--color-muted-copy)]">
+                        {messages.guests.groupSummary(
+                          invitationGroup.memberCount,
+                          invitationGroup.invitedGuestCount,
+                        )}
+                      </p>
+                    </div>
+                    {invitationGroup.allowsPlusOne ? (
+                      <span className="rounded-full bg-white px-3 py-1 text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                        {messages.guests.allowsPlusOneBadge}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-3 text-sm text-[var(--color-muted-copy)]">
+                    {messages.guests.groupRsvpSummary(
+                      invitationGroup.attendingCount,
+                      invitationGroup.pendingCount,
+                      invitationGroup.declinedCount,
+                    )}
+                  </p>
+                  {invitationGroup.notes ? (
+                    <p className="mt-3 text-sm text-[var(--color-ink)]">
+                      {invitationGroup.notes}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
           {/* Bulk action bar */}
           {canEdit && selectedIds.size > 0 && (
             <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border bg-[var(--color-card-tint)] p-3">

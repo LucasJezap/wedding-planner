@@ -6,10 +6,22 @@ import type { UserRole } from "@/lib/planner-domain";
 import { accountActivationSchema } from "@/features/access/types/access";
 import { sendAccountInvitationEmail } from "@/services/email-service";
 import { getActivationUrl } from "@/lib/invitation";
+import {
+  assertRateLimit,
+  consumeRateLimit,
+  resetRateLimit,
+} from "@/lib/rate-limit";
+
+const LOGIN_RATE_LIMIT = {
+  limit: 5,
+  windowMs: 15 * 60 * 1000,
+  label: "login attempts",
+} as const;
 
 export const authenticateUser = async (
   email: string,
   password: string,
+  identifier = email.trim().toLowerCase(),
 ): Promise<{
   id: string;
   weddingId: string;
@@ -17,16 +29,24 @@ export const authenticateUser = async (
   email: string;
   role: UserRole;
 } | null> => {
+  const normalizedEmail = email.trim().toLowerCase();
+  const rateLimitKey = `login:${identifier}:${normalizedEmail}`;
+  assertRateLimit(rateLimitKey, LOGIN_RATE_LIMIT);
+
   const repository = getRepository();
-  const user = await repository.getUserByEmail(email);
+  const user = await repository.getUserByEmail(normalizedEmail);
   if (!user) {
+    consumeRateLimit(rateLimitKey, LOGIN_RATE_LIMIT);
     return null;
   }
 
   const isValid = await compare(password, user.passwordHash);
   if (!isValid) {
+    consumeRateLimit(rateLimitKey, LOGIN_RATE_LIMIT);
     return null;
   }
+
+  resetRateLimit(rateLimitKey);
 
   return {
     id: user.id,

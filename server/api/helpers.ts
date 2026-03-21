@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import type { ApiResponse } from "@/lib/planner-domain";
+import { RateLimitError } from "@/lib/rate-limit";
 
 export const successResponse = <T>(data: T) =>
   NextResponse.json<ApiResponse<T>>({
@@ -10,6 +11,20 @@ export const successResponse = <T>(data: T) =>
   });
 
 export const errorResponse = (error: unknown, status = 400) => {
+  if (error instanceof RateLimitError) {
+    return NextResponse.json<ApiResponse<null>>(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(error.retryAfterSeconds),
+        },
+      },
+    );
+  }
   if (error instanceof ZodError) {
     return NextResponse.json<ApiResponse<null>>(
       {
@@ -38,6 +53,9 @@ export const getErrorStatus = (error: unknown): number => {
   }
   if (error.message === "Forbidden") {
     return 403;
+  }
+  if (error instanceof RateLimitError) {
+    return 429;
   }
   return 400;
 };

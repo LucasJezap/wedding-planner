@@ -20,9 +20,9 @@ import type {
   VendorCategoryRecord,
   VendorView,
 } from "@/lib/planner-domain";
-import { VENDOR_CATEGORY_TYPES } from "@/lib/planner-domain";
+import { VENDOR_CATEGORY_TYPES, VENDOR_STATUSES } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 export const VendorManager = ({
   initialVendors,
@@ -55,6 +55,14 @@ export const VendorManager = ({
       name: "",
       categoryId: categories[0]?.id ?? "",
       cost: 0,
+      status: "RESEARCH",
+      owner: "",
+      bookingDate: "",
+      followUpDate: "",
+      depositAmount: 0,
+      offerUrl: "",
+      websiteUrl: "",
+      instagramUrl: "",
       contactEmail: "",
       contactPhone: "",
       notes: "",
@@ -97,6 +105,14 @@ export const VendorManager = ({
         name: "",
         categoryId: categories[0]?.id ?? "",
         cost: 0,
+        status: "RESEARCH",
+        owner: "",
+        bookingDate: "",
+        followUpDate: "",
+        depositAmount: 0,
+        offerUrl: "",
+        websiteUrl: "",
+        instagramUrl: "",
         contactEmail: "",
         contactPhone: "",
         notes: "",
@@ -112,6 +128,14 @@ export const VendorManager = ({
       name: vendor.name,
       categoryId: vendor.categoryId,
       cost: vendor.cost,
+      status: vendor.status,
+      owner: vendor.owner,
+      bookingDate: vendor.bookingDate ? vendor.bookingDate.slice(0, 16) : "",
+      followUpDate: vendor.followUpDate ? vendor.followUpDate.slice(0, 16) : "",
+      depositAmount: vendor.depositAmount,
+      offerUrl: vendor.offerUrl,
+      websiteUrl: vendor.websiteUrl,
+      instagramUrl: vendor.instagramUrl,
       contactEmail: vendor.contactEmail,
       contactPhone: vendor.contactPhone,
       notes: vendor.notes,
@@ -156,20 +180,95 @@ export const VendorManager = ({
                 </select>
               </label>
               {canViewPricing ? (
-                <label className="space-y-1 text-sm text-[var(--color-ink)]">
-                  <span>{messages.vendors.cost}</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    placeholder={messages.vendors.cost}
-                    {...register("cost", { valueAsNumber: true })}
-                  />
-                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                    <span>{messages.vendors.cost}</span>
+                    <Input
+                      type="number"
+                      step="1"
+                      placeholder={messages.vendors.cost}
+                      {...register("cost", { valueAsNumber: true })}
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                    <span>{messages.vendors.depositAmount}</span>
+                    <Input
+                      type="number"
+                      step="1"
+                      placeholder={messages.vendors.depositAmount}
+                      {...register("depositAmount", { valueAsNumber: true })}
+                    />
+                  </label>
+                </div>
               ) : (
                 <p className="rounded-[1rem] bg-[var(--color-card-tint)]/70 px-4 py-3 text-sm text-[var(--color-muted-copy)]">
                   {messages.vendors.pricingHidden}
                 </p>
               )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                  <span>{messages.vendors.status}</span>
+                  <select
+                    className="h-10 w-full rounded-xl border px-3"
+                    {...register("status")}
+                  >
+                    {VENDOR_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {messages.enums.vendorStatus[status]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                  <span>{messages.vendors.owner}</span>
+                  <Input
+                    placeholder={messages.vendors.owner}
+                    {...register("owner")}
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                  <span>{messages.vendors.bookingDate}</span>
+                  <Input type="datetime-local" {...register("bookingDate")} />
+                </label>
+                <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                  <span>{messages.vendors.followUpDate}</span>
+                  <Input type="datetime-local" {...register("followUpDate")} />
+                </label>
+              </div>
+              <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                <span>{messages.vendors.offerUrl}</span>
+                <Input
+                  type="url"
+                  placeholder={messages.vendors.offerUrl}
+                  aria-invalid={!!errors.offerUrl}
+                  {...register("offerUrl")}
+                />
+                <FieldError error={errors.offerUrl} />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                  <span>{messages.vendors.websiteUrl}</span>
+                  <Input
+                    type="url"
+                    placeholder={messages.vendors.websiteUrl}
+                    aria-invalid={!!errors.websiteUrl}
+                    {...register("websiteUrl")}
+                  />
+                  <FieldError error={errors.websiteUrl} />
+                </label>
+                <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                  <span>{messages.vendors.instagramUrl}</span>
+                  <Input
+                    type="url"
+                    placeholder={messages.vendors.instagramUrl}
+                    aria-invalid={!!errors.instagramUrl}
+                    {...register("instagramUrl")}
+                  />
+                  <FieldError error={errors.instagramUrl} />
+                </label>
+              </div>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.vendors.contactEmail}</span>
                 <Input
@@ -260,20 +359,85 @@ export const VendorManager = ({
                     {vendor.name}
                   </h3>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-[var(--color-card-tint)] px-3 py-1 text-xs uppercase tracking-[0.2em] text-[var(--color-ink)]">
+                    {messages.enums.vendorStatus[vendor.status]}
+                  </span>
+                  {vendor.owner ? (
+                    <span className="rounded-full bg-white px-3 py-1 text-xs text-[var(--color-muted-copy)]">
+                      {vendor.owner}
+                    </span>
+                  ) : null}
+                </div>
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {vendor.contactEmail}
                 </p>
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {vendor.contactPhone}
                 </p>
+                {vendor.followUpDate ? (
+                  <p className="text-sm text-[var(--color-muted-copy)]">
+                    {messages.vendors.followUpLabel(
+                      formatDate(vendor.followUpDate, locale),
+                    )}
+                  </p>
+                ) : null}
+                {vendor.bookingDate ? (
+                  <p className="text-sm text-[var(--color-muted-copy)]">
+                    {messages.vendors.bookingLabel(
+                      formatDate(vendor.bookingDate, locale),
+                    )}
+                  </p>
+                ) : null}
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {vendor.notes}
                 </p>
                 {canViewPricing ? (
-                  <p className="text-lg text-[var(--color-ink)]">
-                    {formatCurrency(vendor.cost, locale)}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-lg text-[var(--color-ink)]">
+                      {formatCurrency(vendor.cost, locale)}
+                    </p>
+                    {vendor.depositAmount > 0 ? (
+                      <p className="text-sm text-[var(--color-muted-copy)]">
+                        {messages.vendors.depositLabel(
+                          formatCurrency(vendor.depositAmount, locale),
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
                 ) : null}
+                <div className="flex flex-wrap gap-2 text-sm">
+                  {vendor.offerUrl ? (
+                    <a
+                      href={vendor.offerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[var(--color-dusty-rose)] underline-offset-4 hover:underline"
+                    >
+                      {messages.vendors.offerUrl}
+                    </a>
+                  ) : null}
+                  {vendor.websiteUrl ? (
+                    <a
+                      href={vendor.websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[var(--color-dusty-rose)] underline-offset-4 hover:underline"
+                    >
+                      {messages.vendors.websiteUrl}
+                    </a>
+                  ) : null}
+                  {vendor.instagramUrl ? (
+                    <a
+                      href={vendor.instagramUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[var(--color-dusty-rose)] underline-offset-4 hover:underline"
+                    >
+                      {messages.vendors.instagramUrl}
+                    </a>
+                  ) : null}
+                </div>
                 {canEdit ? (
                   <div className="flex gap-3">
                     <Button

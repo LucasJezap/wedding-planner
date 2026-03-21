@@ -1,0 +1,10 @@
+ALTER TABLE "invitation_groups"
+ADD COLUMN "shared_rsvp_status" "RsvpStatus" NOT NULL DEFAULT 'PENDING',
+ADD COLUMN "attending_children" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "plus_one_name" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "meal_choice" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "dietary_notes" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "needs_accommodation" BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN "transport_to_venue" BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN "transport_from_venue" BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN "message" TEXT NOT NULL DEFAULT '';

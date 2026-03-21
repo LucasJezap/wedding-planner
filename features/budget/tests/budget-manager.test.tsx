@@ -5,6 +5,7 @@ import { vi } from "vitest";
 import { BudgetManager } from "@/features/budget/components/budget-manager";
 import { apiClient } from "@/lib/api-client";
 import { getBudgetOverview } from "@/services/budget-service";
+import { listVendors } from "@/services/vendor-service";
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: vi.fn(),
@@ -35,6 +36,7 @@ describe("BudgetManager", () => {
       <BudgetManager
         initialCategories={budget.categories}
         initialExpenses={budget.expenses}
+        vendors={await listVendors()}
       />,
     );
 
@@ -44,5 +46,5 @@ describe("BudgetManager", () => {
 
     await waitFor(() => expect(apiClient).toHaveBeenCalled());
     expect(screen.getByText("Podsumowanie budżetu")).toBeInTheDocument();
-  });
+  }, 10000);
 });

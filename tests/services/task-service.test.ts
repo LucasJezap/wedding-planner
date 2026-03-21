@@ -14,13 +14,41 @@ describe("task-service", () => {
       priority: "MEDIUM",
       status: "TODO",
       assignee: "COUPLE",
+      tags: ["decor"],
+      blockedByTaskIds: [],
       notes: "Need a warm ivory tone",
+      checklistItems: [
+        {
+          title: "Approve candle holders",
+          completed: true,
+        },
+        {
+          title: "Confirm taper palette",
+          completed: false,
+        },
+      ],
     });
 
     expect(created.title).toBe("Finalize candles");
+    expect(created.checklistItems).toHaveLength(2);
+    expect(created.checklistItems[0]?.title).toBe("Approve candle holders");
+    expect(created.checklistItems[0]?.completed).toBe(true);
 
-    const updated = await updateTask(created.id, { status: "DONE" });
+    const updated = await updateTask(created.id, {
+      status: "DONE",
+      checklistItems: [
+        {
+          title: "Approve candle holders",
+          completed: true,
+        },
+        {
+          title: "Confirm taper palette",
+          completed: true,
+        },
+      ],
+    });
     expect(updated.status).toBe("DONE");
+    expect(updated.checklistItems.every((item) => item.completed)).toBe(true);
 
     await deleteTask(created.id);
     await expect(listTasks()).resolves.toHaveLength(3);
@@ -55,7 +83,10 @@ describe("task-service", () => {
         priority: "HIGH",
         status: "TODO",
         assignee: "GROOM",
+        tags: [],
+        blockedByTaskIds: [],
         notes: "Should be normalized",
+        checklistItems: [],
       },
       { viewerRole: "WITNESS" },
     );
@@ -77,7 +108,10 @@ describe("task-service", () => {
       priority: "MEDIUM",
       status: "TODO",
       assignee: "COUPLE",
+      tags: [],
+      blockedByTaskIds: [],
       notes: "",
+      checklistItems: [],
     });
     await createTask({
       title: "High task",
@@ -86,7 +120,10 @@ describe("task-service", () => {
       priority: "HIGH",
       status: "TODO",
       assignee: "COUPLE",
+      tags: [],
+      blockedByTaskIds: [],
       notes: "",
+      checklistItems: [],
     });
 
     const matchingTasks = (await listTasks()).filter((task) =>
@@ -96,5 +133,19 @@ describe("task-service", () => {
       "High task",
       "Medium task",
     ]);
+  });
+
+  it("returns seed checklist items with their task", async () => {
+    const tasks = await listTasks();
+    const taskWithChecklist = tasks.find((task) => task.id === "task-1");
+    const blockedTask = tasks.find((task) => task.id === "task-3");
+
+    expect(taskWithChecklist?.checklistItems).toHaveLength(2);
+    expect(taskWithChecklist?.checklistItems[0]?.title).toBe(
+      "Send dietary restrictions to the venue",
+    );
+    expect(blockedTask?.blockedByTaskTitles).toContain(
+      "Confirm final menu tasting",
+    );
   });
 });

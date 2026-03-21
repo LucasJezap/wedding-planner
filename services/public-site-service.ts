@@ -27,6 +27,47 @@ export const getPublicWeddingView = async (): Promise<PublicWeddingView> => {
     }
   }
 
+  const logistics = [
+    wedding.parkingInfo
+      ? {
+          id: "parking" as const,
+          content: wedding.parkingInfo,
+        }
+      : null,
+    wedding.accommodationInfo
+      ? {
+          id: "accommodation" as const,
+          content: wedding.accommodationInfo,
+        }
+      : null,
+    wedding.registryInfo
+      ? {
+          id: "registry" as const,
+          content: wedding.registryInfo,
+        }
+      : null,
+    wedding.transportInfo
+      ? {
+          id: "transport" as const,
+          content: wedding.transportInfo,
+        }
+      : null,
+    wedding.coordinatorName ||
+    wedding.coordinatorPhone ||
+    wedding.coordinatorEmail
+      ? {
+          id: "coordinator" as const,
+          content: [
+            wedding.coordinatorName,
+            wedding.coordinatorPhone,
+            wedding.coordinatorEmail,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        }
+      : null,
+  ].filter((item): item is NonNullable<typeof item> => Boolean(item));
+
   return {
     wedding,
     timeline: timeline
@@ -38,31 +79,88 @@ export const getPublicWeddingView = async (): Promise<PublicWeddingView> => {
     faqItems,
     ceremonyDate: wedding.ceremonyDate,
     coupleNames: `${wedding.coupleOneName} & ${wedding.coupleTwoName}`,
+    logistics,
+  };
+};
+
+const buildPublicGuestLookupView = async (
+  token: string,
+): Promise<PublicGuestLookupView> => {
+  const repository = getRepository();
+  const [guest, rsvps, invitationGroups, guests] = await Promise.all([
+    repository.getGuestByRsvpToken(token),
+    repository.listRsvps(),
+    repository.listInvitationGroups(),
+    repository.listGuests(),
+  ]);
+
+  if (!guest) {
+    throw new Error("Guest not found");
+  }
+
+  const rsvp = rsvps.find((candidate) => candidate.guestId === guest.id);
+  const invitationGroup = invitationGroups.find(
+    (candidate) => candidate.id === guest.invitationGroupId,
+  );
+  const groupMembers = invitationGroup
+    ? guests.filter(
+        (candidate) => candidate.invitationGroupId === invitationGroup.id,
+      )
+    : [];
+  const sharedStatus = invitationGroup?.sharedRsvpStatus;
+
+  return {
+    guest: {
+      id: guest.id,
+      name: `${guest.firstName} ${guest.lastName}`,
+      status: sharedStatus ?? rsvp?.status ?? guest.rsvpStatus,
+      guestCount: invitationGroup?.invitedGuestCount ?? rsvp?.guestCount ?? 1,
+      attendingChildren:
+        invitationGroup?.attendingChildren ?? rsvp?.attendingChildren ?? 0,
+      plusOneName: invitationGroup?.plusOneName ?? rsvp?.plusOneName ?? "",
+      mealChoice: invitationGroup?.mealChoice ?? rsvp?.mealChoice ?? "",
+      dietaryNotes:
+        invitationGroup?.dietaryNotes ??
+        rsvp?.dietaryNotes ??
+        guest.dietaryRestrictions.join(", ").trim(),
+      needsAccommodation:
+        invitationGroup?.needsAccommodation ??
+        rsvp?.needsAccommodation ??
+        false,
+      dietaryRestrictions: guest.dietaryRestrictions,
+      transportToVenue:
+        invitationGroup?.transportToVenue ??
+        rsvp?.transportToVenue ??
+        guest.transportToVenue,
+      transportFromVenue:
+        invitationGroup?.transportFromVenue ??
+        rsvp?.transportFromVenue ??
+        guest.transportFromVenue,
+      message: invitationGroup?.message ?? rsvp?.message ?? "",
+    },
+    invitationGroup: invitationGroup
+      ? {
+          id: invitationGroup.id,
+          name: invitationGroup.name,
+          invitedGuestCount: invitationGroup.invitedGuestCount,
+          allowsPlusOne: invitationGroup.allowsPlusOne,
+          sharedResponse: true,
+          members: groupMembers.map((member) => ({
+            id: member.id,
+            name: `${member.firstName} ${member.lastName}`,
+            status: invitationGroup.sharedRsvpStatus,
+          })),
+        }
+      : undefined,
+    message: "Guest found",
   };
 };
 
 export const lookupPublicGuest = async (
   input: PublicGuestLookupInput,
 ): Promise<PublicGuestLookupView> => {
-  const repository = getRepository();
   const data = publicGuestLookupSchema.parse(input);
-  const guest = await repository.getGuestByRsvpToken(data.token);
-
-  if (!guest) {
-    throw new Error("Guest not found");
-  }
-
-  return {
-    guest: {
-      id: guest.id,
-      name: `${guest.firstName} ${guest.lastName}`,
-      status: guest.rsvpStatus,
-      dietaryRestrictions: guest.dietaryRestrictions,
-      transportToVenue: guest.transportToVenue,
-      transportFromVenue: guest.transportFromVenue,
-    },
-    message: "RSVP updated",
-  };
+  return buildPublicGuestLookupView(data.token);
 };
 
 export const submitPublicRsvp = async (
@@ -79,11 +177,68 @@ export const submitPublicRsvp = async (
     throw new Error("Guest not found");
   }
 
-  await repository.upsertRsvp({
-    weddingId: wedding.id,
-    guestId: guest.id,
-    status: data.status,
-    guestCount: data.guestCount,
-  });
-  return lookupPublicGuest({ token: data.token });
+  if (guest.invitationGroupId) {
+    const groups = await repository.listInvitationGroups();
+    const invitationGroup = groups.find(
+      (candidate) => candidate.id === guest.invitationGroupId,
+    );
+    if (!invitationGroup) {
+      throw new Error("Invitation group not found");
+    }
+
+    await repository.updateInvitationGroup(invitationGroup.id, {
+      invitedGuestCount: data.guestCount,
+      allowsPlusOne: invitationGroup.allowsPlusOne,
+      notes: invitationGroup.notes,
+      sharedRsvpStatus: data.status,
+      attendingChildren: data.attendingChildren,
+      plusOneName: data.plusOneName,
+      mealChoice: data.mealChoice,
+      dietaryNotes: data.dietaryNotes,
+      needsAccommodation: data.needsAccommodation,
+      transportToVenue: data.transportToVenue,
+      transportFromVenue: data.transportFromVenue,
+      message: data.message,
+    });
+
+    const guests = await repository.listGuests();
+    const groupMembers = guests.filter(
+      (candidate) => candidate.invitationGroupId === invitationGroup.id,
+    );
+    await Promise.all(
+      groupMembers.map((member) =>
+        repository.updateGuest(
+          member.id,
+          {
+            rsvpStatus: data.status,
+            transportToVenue: data.transportToVenue,
+            transportFromVenue: data.transportFromVenue,
+          },
+          {},
+          {},
+        ),
+      ),
+    );
+  } else {
+    await repository.upsertRsvp({
+      weddingId: wedding.id,
+      guestId: guest.id,
+      status: data.status,
+      guestCount: data.guestCount,
+      attendingChildren: data.attendingChildren,
+      plusOneName: data.plusOneName,
+      mealChoice: data.mealChoice,
+      dietaryNotes: data.dietaryNotes,
+      needsAccommodation: data.needsAccommodation,
+      transportToVenue: data.transportToVenue,
+      transportFromVenue: data.transportFromVenue,
+      message: data.message,
+    });
+  }
+  const response = await buildPublicGuestLookupView(data.token);
+
+  return {
+    ...response,
+    message: "RSVP updated",
+  };
 };

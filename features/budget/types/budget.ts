@@ -16,10 +16,12 @@ export const budgetCategoryInputSchema = z.object({
 export const expenseInputSchema = z
   .object({
     categoryId: z.string().min(1),
+    vendorId: z.string().optional().default(""),
     name: z.string().min(1),
     estimateMin: z.number().min(0),
     estimateMax: z.number().min(0),
     actualAmount: z.number().min(0),
+    dueDate: z.string().optional().default(""),
     notes: z.string().default(""),
   })
   .refine((value) => value.estimateMax >= value.estimateMin, {
@@ -35,6 +37,6 @@ export const paymentInputSchema = z.object({
 });
 
 export type BudgetCategoryInput = z.infer<typeof budgetCategoryInputSchema>;
-export type ExpenseInput = z.infer<typeof expenseInputSchema>;
+export type ExpenseInput = z.input<typeof expenseInputSchema>;
 export type PaymentInput = z.infer<typeof paymentInputSchema>;
 export type { BudgetCategoryView, ExpenseView, PaymentRecord };

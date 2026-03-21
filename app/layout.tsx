@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 
+import { ChunkLoadRecovery } from "@/components/chunk-load-recovery";
 import { LocaleProvider } from "@/components/locale-provider";
 import { getRequestMessages } from "@/lib/i18n-server";
 
@@ -44,6 +45,7 @@ export default async function RootLayout({
   return (
     <html lang={locale}>
       <body className={`${manrope.variable} ${cormorant.variable} antialiased`}>
+        <ChunkLoadRecovery />
         <LocaleProvider locale={locale}>{children}</LocaleProvider>
       </body>
     </html>

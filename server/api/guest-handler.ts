@@ -4,12 +4,14 @@ import {
   createGuest,
   deleteGuest,
   listGuests,
+  listInvitationGroups,
   updateGuest,
   bulkUpdateGuests,
   bulkDeleteGuests,
 } from "@/services/guest-service";
 
 export const getGuestsHandler = async () => listGuests();
+export const getInvitationGroupsHandler = async () => listInvitationGroups();
 export const createGuestHandler = async (input: GuestInput) =>
   createGuest(input);
 export const updateGuestHandler = async (

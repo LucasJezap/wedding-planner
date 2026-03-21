@@ -12,11 +12,13 @@ import type {
   ContactRecord,
   ExpenseRecord,
   GuestRecord,
+  InvitationGroupRecord,
   NoteRecord,
   PaymentRecord,
   PlannerState,
   RsvpRecord,
   SeatRecord,
+  TaskChecklistItemRecord,
   TaskRecord,
   TimelineEventRecord,
   UserInvitationRecord,
@@ -84,6 +86,13 @@ const toWeddingRecord = (wedding: {
   aboutText?: string | null;
   dressCode?: string | null;
   faqItems?: string | null;
+  parkingInfo?: string | null;
+  accommodationInfo?: string | null;
+  registryInfo?: string | null;
+  transportInfo?: string | null;
+  coordinatorName?: string | null;
+  coordinatorPhone?: string | null;
+  coordinatorEmail?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): WeddingRecord => ({
@@ -98,6 +107,13 @@ const toWeddingRecord = (wedding: {
   aboutText: wedding.aboutText ?? undefined,
   dressCode: wedding.dressCode ?? undefined,
   faqItems: wedding.faqItems ?? undefined,
+  parkingInfo: wedding.parkingInfo ?? undefined,
+  accommodationInfo: wedding.accommodationInfo ?? undefined,
+  registryInfo: wedding.registryInfo ?? undefined,
+  transportInfo: wedding.transportInfo ?? undefined,
+  coordinatorName: wedding.coordinatorName ?? undefined,
+  coordinatorPhone: wedding.coordinatorPhone ?? undefined,
+  coordinatorEmail: wedding.coordinatorEmail ?? undefined,
   createdAt: wedding.createdAt.toISOString(),
   updatedAt: wedding.updatedAt.toISOString(),
 });
@@ -115,6 +131,7 @@ const toGuestRecord = (guest: {
   invitationReceived: boolean;
   transportToVenue: boolean;
   transportFromVenue: boolean;
+  invitationGroupId: string | null;
   tableId: string | null;
   groupName?: string | null;
   createdAt: Date;
@@ -132,10 +149,50 @@ const toGuestRecord = (guest: {
   invitationReceived: guest.invitationReceived,
   transportToVenue: guest.transportToVenue,
   transportFromVenue: guest.transportFromVenue,
+  invitationGroupId: guest.invitationGroupId ?? undefined,
   tableId: guest.tableId ?? undefined,
   groupName: guest.groupName ?? undefined,
   createdAt: guest.createdAt.toISOString(),
   updatedAt: guest.updatedAt.toISOString(),
+});
+
+const toInvitationGroupRecord = (group: {
+  id: string;
+  weddingId: string;
+  name: string;
+  invitedGuestCount: number;
+  allowsPlusOne: boolean;
+  notes: string;
+  sharedRsvpStatus: string;
+  attendingChildren: number;
+  plusOneName: string;
+  mealChoice: string;
+  dietaryNotes: string;
+  needsAccommodation: boolean;
+  transportToVenue: boolean;
+  transportFromVenue: boolean;
+  message: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): InvitationGroupRecord => ({
+  id: group.id,
+  weddingId: group.weddingId,
+  name: group.name,
+  invitedGuestCount: group.invitedGuestCount,
+  allowsPlusOne: group.allowsPlusOne,
+  notes: group.notes,
+  sharedRsvpStatus:
+    group.sharedRsvpStatus as InvitationGroupRecord["sharedRsvpStatus"],
+  attendingChildren: group.attendingChildren,
+  plusOneName: group.plusOneName,
+  mealChoice: group.mealChoice,
+  dietaryNotes: group.dietaryNotes,
+  needsAccommodation: group.needsAccommodation,
+  transportToVenue: group.transportToVenue,
+  transportFromVenue: group.transportFromVenue,
+  message: group.message,
+  createdAt: group.createdAt.toISOString(),
+  updatedAt: group.updatedAt.toISOString(),
 });
 
 const toContactRecord = (contact: {
@@ -240,6 +297,14 @@ const toVendorRecord = (vendor: {
   categoryId: string;
   name: string;
   cost: { toNumber(): number };
+  status: string;
+  owner: string;
+  bookingDate: Date | null;
+  followUpDate: Date | null;
+  depositAmount: { toNumber(): number };
+  offerUrl: string;
+  websiteUrl: string;
+  instagramUrl: string;
   createdAt: Date;
   updatedAt: Date;
 }): VendorRecord => ({
@@ -248,6 +313,14 @@ const toVendorRecord = (vendor: {
   categoryId: vendor.categoryId,
   name: vendor.name,
   cost: vendor.cost.toNumber(),
+  status: vendor.status as VendorRecord["status"],
+  owner: vendor.owner,
+  bookingDate: vendor.bookingDate?.toISOString(),
+  followUpDate: vendor.followUpDate?.toISOString(),
+  depositAmount: vendor.depositAmount.toNumber(),
+  offerUrl: vendor.offerUrl,
+  websiteUrl: vendor.websiteUrl,
+  instagramUrl: vendor.instagramUrl,
   createdAt: vendor.createdAt.toISOString(),
   updatedAt: vendor.updatedAt.toISOString(),
 });
@@ -276,10 +349,12 @@ const toExpenseRecord = (expense: {
   id: string;
   weddingId: string;
   categoryId: string;
+  vendorId: string | null;
   name: string;
   estimateMin: { toNumber(): number };
   estimateMax: { toNumber(): number };
   actualAmount: { toNumber(): number };
+  dueDate: Date | null;
   notes: string;
   createdAt: Date;
   updatedAt: Date;
@@ -287,10 +362,12 @@ const toExpenseRecord = (expense: {
   id: expense.id,
   weddingId: expense.weddingId,
   categoryId: expense.categoryId,
+  vendorId: expense.vendorId ?? undefined,
   name: expense.name,
   estimateMin: expense.estimateMin.toNumber(),
   estimateMax: expense.estimateMax.toNumber(),
   actualAmount: expense.actualAmount.toNumber(),
+  dueDate: expense.dueDate?.toISOString(),
   notes: expense.notes,
   createdAt: expense.createdAt.toISOString(),
   updatedAt: expense.updatedAt.toISOString(),
@@ -325,6 +402,8 @@ const toTaskRecord = (task: {
   priority: string;
   status: string;
   assignee: string;
+  tags: string[];
+  blockedByTaskIds: string[];
   createdAt: Date;
   updatedAt: Date;
 }): TaskRecord => ({
@@ -336,8 +415,30 @@ const toTaskRecord = (task: {
   priority: task.priority as TaskRecord["priority"],
   status: task.status as TaskRecord["status"],
   assignee: task.assignee as TaskRecord["assignee"],
+  tags: task.tags,
+  blockedByTaskIds: task.blockedByTaskIds,
   createdAt: task.createdAt.toISOString(),
   updatedAt: task.updatedAt.toISOString(),
+});
+
+const toTaskChecklistItemRecord = (item: {
+  id: string;
+  weddingId: string;
+  taskId: string;
+  title: string;
+  completed: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): TaskChecklistItemRecord => ({
+  id: item.id,
+  weddingId: item.weddingId,
+  taskId: item.taskId,
+  title: item.title,
+  completed: item.completed,
+  sortOrder: item.sortOrder,
+  createdAt: item.createdAt.toISOString(),
+  updatedAt: item.updatedAt.toISOString(),
 });
 
 const toTimelineEventRecord = (event: {
@@ -368,6 +469,14 @@ const toRsvpRecord = (rsvp: {
   guestId: string;
   status: string;
   guestCount: number;
+  attendingChildren: number;
+  plusOneName: string;
+  mealChoice: string;
+  dietaryNotes: string;
+  needsAccommodation: boolean;
+  transportToVenue: boolean;
+  transportFromVenue: boolean;
+  message: string;
   createdAt: Date;
   updatedAt: Date;
 }): RsvpRecord => ({
@@ -376,6 +485,14 @@ const toRsvpRecord = (rsvp: {
   guestId: rsvp.guestId,
   status: rsvp.status as RsvpRecord["status"],
   guestCount: rsvp.guestCount,
+  attendingChildren: rsvp.attendingChildren,
+  plusOneName: rsvp.plusOneName,
+  mealChoice: rsvp.mealChoice,
+  dietaryNotes: rsvp.dietaryNotes,
+  needsAccommodation: rsvp.needsAccommodation,
+  transportToVenue: rsvp.transportToVenue,
+  transportFromVenue: rsvp.transportFromVenue,
+  message: rsvp.message,
   createdAt: rsvp.createdAt.toISOString(),
   updatedAt: rsvp.updatedAt.toISOString(),
 });
@@ -388,6 +505,7 @@ export const prismaPlannerRepository: PlannerRepository = {
       users,
       userInvitations,
       wedding,
+      invitationGroups,
       guests,
       contacts,
       notes,
@@ -399,12 +517,14 @@ export const prismaPlannerRepository: PlannerRepository = {
       expenses,
       payments,
       tasks,
+      taskChecklistItems,
       timelineEvents,
       rsvps,
     ] = await Promise.all([
       db.user.findMany(),
       db.userInvitation.findMany(),
       getWeddingOrThrow(),
+      db.invitationGroup.findMany(),
       db.guest.findMany(),
       db.contact.findMany(),
       db.note.findMany(),
@@ -416,6 +536,7 @@ export const prismaPlannerRepository: PlannerRepository = {
       db.expense.findMany(),
       db.payment.findMany(),
       db.task.findMany(),
+      db.taskChecklistItem.findMany(),
       db.timelineEvent.findMany(),
       db.rsvp.findMany(),
     ]);
@@ -424,6 +545,7 @@ export const prismaPlannerRepository: PlannerRepository = {
       users: users.map(toUserRecord),
       userInvitations: userInvitations.map(toUserInvitationRecord),
       wedding: toWeddingRecord(wedding),
+      invitationGroups: invitationGroups.map(toInvitationGroupRecord),
       guests: guests.map(toGuestRecord),
       contacts: contacts.map(toContactRecord),
       notes: notes.map(toNoteRecord),
@@ -435,6 +557,7 @@ export const prismaPlannerRepository: PlannerRepository = {
       expenses: expenses.map(toExpenseRecord),
       payments: payments.map(toPaymentRecord),
       tasks: tasks.map(toTaskRecord),
+      taskChecklistItems: taskChecklistItems.map(toTaskChecklistItemRecord),
       timelineEvents: timelineEvents.map(toTimelineEventRecord),
       rsvps: rsvps.map(toRsvpRecord),
     };
@@ -524,6 +647,11 @@ export const prismaPlannerRepository: PlannerRepository = {
   async getWedding() {
     return toWeddingRecord(await getWeddingOrThrow());
   },
+  async listInvitationGroups() {
+    return (
+      await db.invitationGroup.findMany({ orderBy: { name: "asc" } })
+    ).map(toInvitationGroupRecord);
+  },
   async getGuestByRsvpToken(token) {
     const guest = await db.guest.findUnique({ where: { rsvpToken: token } });
     return guest ? toGuestRecord(guest) : null;
@@ -563,6 +691,13 @@ export const prismaPlannerRepository: PlannerRepository = {
   async listTasks() {
     return (await db.task.findMany()).map(toTaskRecord);
   },
+  async listTaskChecklistItems() {
+    return (
+      await db.taskChecklistItem.findMany({
+        orderBy: [{ taskId: "asc" }, { sortOrder: "asc" }],
+      })
+    ).map(toTaskChecklistItemRecord);
+  },
   async listTimelineEvents() {
     return (await db.timelineEvent.findMany()).map(toTimelineEventRecord);
   },
@@ -583,6 +718,7 @@ export const prismaPlannerRepository: PlannerRepository = {
         invitationReceived: guest.invitationReceived,
         transportToVenue: guest.transportToVenue,
         transportFromVenue: guest.transportFromVenue,
+        invitationGroupId: guest.invitationGroupId,
         tableId: guest.tableId,
         groupName: guest.groupName,
       },
@@ -621,6 +757,7 @@ export const prismaPlannerRepository: PlannerRepository = {
         invitationReceived: guest.invitationReceived,
         transportToVenue: guest.transportToVenue,
         transportFromVenue: guest.transportFromVenue,
+        invitationGroupId: guest.invitationGroupId,
         tableId: guest.tableId,
         groupName: guest.groupName,
       },
@@ -654,7 +791,58 @@ export const prismaPlannerRepository: PlannerRepository = {
 
     return toGuestRecord(updated);
   },
+  async createInvitationGroup(group) {
+    return toInvitationGroupRecord(
+      await db.invitationGroup.create({
+        data: {
+          weddingId: group.weddingId,
+          name: group.name,
+          invitedGuestCount: group.invitedGuestCount,
+          allowsPlusOne: group.allowsPlusOne,
+          notes: group.notes,
+          sharedRsvpStatus: group.sharedRsvpStatus,
+          attendingChildren: group.attendingChildren,
+          plusOneName: group.plusOneName,
+          mealChoice: group.mealChoice,
+          dietaryNotes: group.dietaryNotes,
+          needsAccommodation: group.needsAccommodation,
+          transportToVenue: group.transportToVenue,
+          transportFromVenue: group.transportFromVenue,
+          message: group.message,
+        },
+      }),
+    );
+  },
+  async updateInvitationGroup(groupId, group) {
+    return toInvitationGroupRecord(
+      await db.invitationGroup.update({
+        where: { id: groupId },
+        data: {
+          name: group.name,
+          invitedGuestCount: group.invitedGuestCount,
+          allowsPlusOne: group.allowsPlusOne,
+          notes: group.notes,
+          sharedRsvpStatus: group.sharedRsvpStatus,
+          attendingChildren: group.attendingChildren,
+          plusOneName: group.plusOneName,
+          mealChoice: group.mealChoice,
+          dietaryNotes: group.dietaryNotes,
+          needsAccommodation: group.needsAccommodation,
+          transportToVenue: group.transportToVenue,
+          transportFromVenue: group.transportFromVenue,
+          message: group.message,
+        },
+      }),
+    );
+  },
+  async deleteInvitationGroup(groupId) {
+    await db.invitationGroup.delete({ where: { id: groupId } });
+  },
   async deleteGuest(guestId) {
+    const guest = await db.guest.findUnique({
+      where: { id: guestId },
+      select: { invitationGroupId: true },
+    });
     await db.$transaction([
       db.seat.updateMany({ where: { guestId }, data: { guestId: null } }),
       db.contact.deleteMany({ where: { guestId } }),
@@ -662,6 +850,16 @@ export const prismaPlannerRepository: PlannerRepository = {
       db.rsvp.deleteMany({ where: { guestId } }),
       db.guest.delete({ where: { id: guestId } }),
     ]);
+    if (guest?.invitationGroupId) {
+      const remainingMembers = await db.guest.count({
+        where: { invitationGroupId: guest.invitationGroupId },
+      });
+      if (remainingMembers === 0) {
+        await db.invitationGroup.delete({
+          where: { id: guest.invitationGroupId },
+        });
+      }
+    }
   },
   async createVendor(vendor, contact, note) {
     const created = await db.vendor.create({
@@ -670,6 +868,16 @@ export const prismaPlannerRepository: PlannerRepository = {
         categoryId: vendor.categoryId,
         name: vendor.name,
         cost: vendor.cost,
+        status: vendor.status,
+        owner: vendor.owner,
+        bookingDate: vendor.bookingDate ? new Date(vendor.bookingDate) : null,
+        followUpDate: vendor.followUpDate
+          ? new Date(vendor.followUpDate)
+          : null,
+        depositAmount: vendor.depositAmount,
+        offerUrl: vendor.offerUrl,
+        websiteUrl: vendor.websiteUrl,
+        instagramUrl: vendor.instagramUrl,
       },
     });
 
@@ -699,6 +907,16 @@ export const prismaPlannerRepository: PlannerRepository = {
         categoryId: vendor.categoryId,
         name: vendor.name,
         cost: vendor.cost,
+        status: vendor.status,
+        owner: vendor.owner,
+        bookingDate: vendor.bookingDate ? new Date(vendor.bookingDate) : null,
+        followUpDate: vendor.followUpDate
+          ? new Date(vendor.followUpDate)
+          : null,
+        depositAmount: vendor.depositAmount,
+        offerUrl: vendor.offerUrl,
+        websiteUrl: vendor.websiteUrl,
+        instagramUrl: vendor.instagramUrl,
       },
     });
 
@@ -737,7 +955,7 @@ export const prismaPlannerRepository: PlannerRepository = {
       db.vendor.delete({ where: { id: vendorId } }),
     ]);
   },
-  async createTask(task, note) {
+  async createTask(task, note, checklistItems) {
     const created = await db.task.create({
       data: {
         weddingId: task.weddingId,
@@ -747,6 +965,16 @@ export const prismaPlannerRepository: PlannerRepository = {
         priority: task.priority,
         status: task.status,
         assignee: task.assignee,
+        tags: task.tags,
+        blockedByTaskIds: task.blockedByTaskIds,
+        checklistItems: {
+          create: checklistItems.map((item, index) => ({
+            weddingId: item.weddingId,
+            title: item.title,
+            completed: item.completed,
+            sortOrder: index,
+          })),
+        },
       },
     });
 
@@ -760,17 +988,39 @@ export const prismaPlannerRepository: PlannerRepository = {
 
     return toTaskRecord(created);
   },
-  async updateTask(taskId, task, note) {
-    const updated = await db.task.update({
-      where: { id: taskId },
-      data: {
-        title: task.title,
-        description: task.description,
-        dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-        priority: task.priority,
-        status: task.status,
-        assignee: task.assignee,
-      },
+  async updateTask(taskId, task, note, checklistItems) {
+    const updated = await db.$transaction(async (tx) => {
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          title: task.title,
+          description: task.description,
+          dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+          priority: task.priority,
+          status: task.status,
+          assignee: task.assignee,
+          tags: task.tags,
+          blockedByTaskIds: task.blockedByTaskIds,
+        },
+      });
+
+      await tx.taskChecklistItem.deleteMany({
+        where: { taskId },
+      });
+
+      if (checklistItems.length > 0) {
+        await tx.taskChecklistItem.createMany({
+          data: checklistItems.map((item, index) => ({
+            weddingId: item.weddingId,
+            taskId,
+            title: item.title,
+            completed: item.completed,
+            sortOrder: index,
+          })),
+        });
+      }
+
+      return updatedTask;
     });
 
     await db.note.upsert({
@@ -789,6 +1039,7 @@ export const prismaPlannerRepository: PlannerRepository = {
   },
   async deleteTask(taskId) {
     await db.$transaction([
+      db.taskChecklistItem.deleteMany({ where: { taskId } }),
       db.note.deleteMany({ where: { taskId } }),
       db.task.delete({ where: { id: taskId } }),
     ]);
@@ -838,10 +1089,12 @@ export const prismaPlannerRepository: PlannerRepository = {
         data: {
           weddingId: expense.weddingId,
           categoryId: expense.categoryId,
+          vendorId: expense.vendorId,
           name: expense.name,
           estimateMin: expense.estimateMin,
           estimateMax: expense.estimateMax,
           actualAmount: expense.actualAmount,
+          dueDate: expense.dueDate ? new Date(expense.dueDate) : null,
           notes: expense.notes,
         },
       }),
@@ -853,10 +1106,12 @@ export const prismaPlannerRepository: PlannerRepository = {
         where: { id: expenseId },
         data: {
           categoryId: expense.categoryId,
+          vendorId: expense.vendorId,
           name: expense.name,
           estimateMin: expense.estimateMin,
           estimateMax: expense.estimateMax,
           actualAmount: expense.actualAmount,
+          dueDate: expense.dueDate ? new Date(expense.dueDate) : null,
           notes: expense.notes,
         },
       }),
@@ -1105,18 +1360,38 @@ export const prismaPlannerRepository: PlannerRepository = {
       update: {
         status: rsvp.status,
         guestCount: rsvp.guestCount,
+        attendingChildren: rsvp.attendingChildren,
+        plusOneName: rsvp.plusOneName,
+        mealChoice: rsvp.mealChoice,
+        dietaryNotes: rsvp.dietaryNotes,
+        needsAccommodation: rsvp.needsAccommodation,
+        transportToVenue: rsvp.transportToVenue,
+        transportFromVenue: rsvp.transportFromVenue,
+        message: rsvp.message,
       },
       create: {
         weddingId: rsvp.weddingId,
         guestId: rsvp.guestId,
         status: rsvp.status,
         guestCount: rsvp.guestCount,
+        attendingChildren: rsvp.attendingChildren,
+        plusOneName: rsvp.plusOneName,
+        mealChoice: rsvp.mealChoice,
+        dietaryNotes: rsvp.dietaryNotes,
+        needsAccommodation: rsvp.needsAccommodation,
+        transportToVenue: rsvp.transportToVenue,
+        transportFromVenue: rsvp.transportFromVenue,
+        message: rsvp.message,
       },
     });
 
     await db.guest.update({
       where: { id: rsvp.guestId },
-      data: { rsvpStatus: rsvp.status },
+      data: {
+        rsvpStatus: rsvp.status,
+        transportToVenue: rsvp.transportToVenue,
+        transportFromVenue: rsvp.transportFromVenue,
+      },
     });
 
     return toRsvpRecord(record);

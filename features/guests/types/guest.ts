@@ -18,6 +18,9 @@ export const guestInputSchema = z.object({
   phone: z.string().min(6).or(z.literal("")),
   notes: z.string().default(""),
   groupName: z.string().optional().default(""),
+  invitedGuestCount: z.number().int().min(1).max(10).default(1),
+  allowsPlusOne: z.boolean().default(false),
+  groupNotes: z.string().default(""),
 });
 
 export const bulkGuestInputSchema = z.discriminatedUnion("action", [
@@ -31,6 +34,9 @@ export const bulkGuestInputSchema = z.discriminatedUnion("action", [
     updates: z.object({
       rsvpStatus: z.enum(["PENDING", "ATTENDING", "DECLINED"]).optional(),
       groupName: z.string().optional(),
+      invitedGuestCount: z.number().int().min(1).max(10).optional(),
+      allowsPlusOne: z.boolean().optional(),
+      groupNotes: z.string().optional(),
     }),
   }),
 ]);

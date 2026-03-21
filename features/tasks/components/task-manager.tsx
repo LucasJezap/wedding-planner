@@ -11,18 +11,31 @@ import { toast } from "@/lib/toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useTaskBuckets } from "@/features/tasks/hooks/use-task-buckets";
+import { TASK_TEMPLATES } from "@/features/tasks/lib/task-templates";
 import { taskInputSchema } from "@/features/tasks/types/task";
-import type { TaskInput } from "@/features/tasks/types/task";
+import type {
+  TaskChecklistItemInput,
+  TaskInput,
+  TaskView,
+} from "@/features/tasks/types/task";
 import { canCreateTasks, canEditTasks } from "@/lib/access-control";
-import type { TaskRecord, UserRole } from "@/lib/planner-domain";
+import type { UserRole } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
 import { toDateTimeLocalValue } from "@/lib/date-time";
 import { formatDate } from "@/lib/format";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 const statusOrder = { TODO: 0, IN_PROGRESS: 1, DONE: 2 } as const;
 const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 } as const;
+const TASK_VIEW_PRESETS = [
+  "ALL",
+  "OVERDUE",
+  "NEXT_14_DAYS",
+  "CHECKLIST_OPEN",
+] as const;
+type TaskViewPreset = (typeof TASK_VIEW_PRESETS)[number];
 
-const sortTasks = (items: Array<TaskRecord & { notes: string }>) =>
+const sortTasks = (items: TaskView[]) =>
   items.slice().sort((left, right) => {
     return (
       statusOrder[left.status] - statusOrder[right.status] ||
@@ -31,24 +44,90 @@ const sortTasks = (items: Array<TaskRecord & { notes: string }>) =>
     );
   });
 
+const toChecklistInput = (
+  items: Array<{ id?: string; title: string; completed: boolean }>,
+): TaskChecklistItemInput[] =>
+  items
+    .map((item) => ({
+      id: item.id,
+      title: item.title.trim(),
+      completed: item.completed,
+    }))
+    .filter((item) => item.title.length > 0);
+
+const toTaskPayload = (
+  task: TaskView,
+  overrides?: Partial<TaskInput>,
+): TaskInput => ({
+  title: task.title,
+  description: task.description,
+  dueDate: toDateTimeLocalValue(task.dueDate),
+  priority: task.priority,
+  status: task.status,
+  assignee: task.assignee,
+  tags: task.tags,
+  blockedByTaskIds: task.blockedByTaskIds,
+  notes: task.notes,
+  checklistItems: task.checklistItems.map((item) => ({
+    id: item.id,
+    title: item.title,
+    completed: item.completed,
+  })),
+  ...overrides,
+});
+
+const filterByViewPreset = (
+  tasks: TaskView[],
+  viewPreset: TaskViewPreset,
+): TaskView[] => {
+  const now = Date.now();
+  const twoWeeks = now + 14 * 24 * 60 * 60 * 1000;
+
+  switch (viewPreset) {
+    case "OVERDUE":
+      return tasks.filter(
+        (task) =>
+          task.status !== "DONE" && new Date(task.dueDate).getTime() < now,
+      );
+    case "NEXT_14_DAYS":
+      return tasks.filter((task) => {
+        const dueAt = new Date(task.dueDate).getTime();
+        return task.status !== "DONE" && dueAt >= now && dueAt <= twoWeeks;
+      });
+    case "CHECKLIST_OPEN":
+      return tasks.filter(
+        (task) =>
+          task.status !== "DONE" &&
+          task.checklistItems.some((item) => !item.completed),
+      );
+    default:
+      return tasks;
+  }
+};
+
 export const TaskManager = ({
   initialTasks,
   viewerRole,
 }: {
-  initialTasks: Array<TaskRecord & { notes: string }>;
+  initialTasks: TaskView[];
   viewerRole: UserRole;
 }) => {
   const { locale, messages } = useLocale();
   const [tasks, setTasks] = useState(sortTasks(initialTasks));
-  const [selectedTask, setSelectedTask] = useState<
-    (TaskRecord & { notes: string }) | null
-  >(null);
+  const [selectedTask, setSelectedTask] = useState<TaskView | null>(null);
+  const [checklistItems, setChecklistItems] = useState<
+    TaskChecklistItemInput[]
+  >([]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | TaskInput["status"]>(
     "ALL",
   );
   const [assigneeFilter, setAssigneeFilter] = useState<
     "ALL" | TaskInput["assignee"]
   >("ALL");
+  const [viewPreset, setViewPreset, viewPresetHydrated] =
+    useLocalStorage<TaskViewPreset>(`tasks-view-preset:${viewerRole}`, "ALL");
   const buckets = useTaskBuckets(tasks);
   const formRef = useRef<HTMLDivElement | null>(null);
   const emptyTaskForm: TaskInput = {
@@ -58,27 +137,46 @@ export const TaskManager = ({
     priority: "MEDIUM",
     status: "TODO",
     assignee: viewerRole === "WITNESS" ? "WITNESSES" : "COUPLE",
+    tags: [],
+    blockedByTaskIds: [],
     notes: "",
+    checklistItems: [],
   };
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<TaskInput>({
     defaultValues: emptyTaskForm,
     resolver: zodResolver(taskInputSchema) as never,
   });
+  const watchedTags = watch("tags");
+  const watchedBlockedByTaskIds = watch("blockedByTaskIds");
+
+  const resetTaskForm = () => {
+    setSelectedTask(null);
+    setChecklistItems([]);
+    setSelectedTemplateId("");
+    reset(emptyTaskForm);
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     try {
+      const normalizedChecklistItems = toChecklistInput(checklistItems);
       const payload =
         viewerRole === "WITNESS"
-          ? { ...values, assignee: "WITNESSES" as const }
-          : values;
+          ? {
+              ...values,
+              assignee: "WITNESSES" as const,
+              checklistItems: normalizedChecklistItems,
+            }
+          : { ...values, checklistItems: normalizedChecklistItems };
 
       if (selectedTask) {
-        const updated = await apiClient<TaskRecord & { notes: string }>(
+        const updated = await apiClient<TaskView>(
           `/api/tasks/${selectedTask.id}`,
           {
             method: "PATCH",
@@ -91,23 +189,19 @@ export const TaskManager = ({
           ),
         );
       } else {
-        const created = await apiClient<TaskRecord & { notes: string }>(
-          "/api/tasks",
-          {
-            method: "POST",
-            body: JSON.stringify(payload),
-          },
-        );
+        const created = await apiClient<TaskView>("/api/tasks", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
         setTasks((current) => sortTasks([...current, created]));
       }
-      setSelectedTask(null);
-      reset(emptyTaskForm);
+      resetTaskForm();
     } catch {
       toast.error(messages.common.actionError);
     }
   });
 
-  const visibleTasks = tasks.filter((task) => {
+  const visibleTasks = filterByViewPreset(tasks, viewPreset).filter((task) => {
     if (statusFilter !== "ALL" && task.status !== statusFilter) {
       return false;
     }
@@ -117,7 +211,7 @@ export const TaskManager = ({
     return true;
   });
 
-  const handleEdit = (task: TaskRecord & { notes: string }) => {
+  const handleEdit = (task: TaskView) => {
     setSelectedTask(task);
     reset({
       title: task.title,
@@ -126,10 +220,63 @@ export const TaskManager = ({
       priority: task.priority,
       status: task.status,
       assignee: task.assignee,
+      tags: task.tags,
+      blockedByTaskIds: task.blockedByTaskIds,
       notes: task.notes,
+      checklistItems: task.checklistItems.map((item) => ({
+        id: item.id,
+        title: item.title,
+        completed: item.completed,
+      })),
     });
+    setChecklistItems(
+      task.checklistItems.map((item) => ({
+        id: item.id,
+        title: item.title,
+        completed: item.completed,
+      })),
+    );
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  const bulkUpdateStatus = async (status: TaskInput["status"]) => {
+    if (selectedTaskIds.length === 0) {
+      return;
+    }
+
+    try {
+      const updatedTasks = await Promise.all(
+        tasks
+          .filter((task) => selectedTaskIds.includes(task.id))
+          .map((task) =>
+            apiClient<TaskView>(`/api/tasks/${task.id}`, {
+              method: "PATCH",
+              body: JSON.stringify(
+                toTaskPayload(task, {
+                  status,
+                }),
+              ),
+            }),
+          ),
+      );
+
+      setTasks((current) =>
+        sortTasks(
+          current.map(
+            (task) =>
+              updatedTasks.find((updated) => updated.id === task.id) ?? task,
+          ),
+        ),
+      );
+      setSelectedTaskIds([]);
+    } catch {
+      toast.error(messages.common.actionError);
+    }
+  };
+
+  const allVisibleSelected =
+    visibleTasks.length > 0 &&
+    visibleTasks.every((task) => selectedTaskIds.includes(task.id));
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
@@ -145,6 +292,41 @@ export const TaskManager = ({
           </CardHeader>
           <CardContent>
             <form className="space-y-3" onSubmit={onSubmit}>
+              <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                <span>{messages.tasks.template}</span>
+                <select
+                  className="h-10 w-full rounded-xl border px-3"
+                  value={selectedTemplateId}
+                  onChange={(event) => {
+                    const templateId = event.target.value;
+                    setSelectedTemplateId(templateId);
+                    const template = TASK_TEMPLATES.find(
+                      (candidate) => candidate.id === templateId,
+                    );
+                    if (!template) {
+                      return;
+                    }
+                    reset({
+                      ...emptyTaskForm,
+                      ...template.values,
+                      dueDate: toDateTimeLocalValue(new Date().toISOString()),
+                    });
+                    setChecklistItems(
+                      (template.values.checklistItems ?? []).map((item) => ({
+                        title: item.title,
+                        completed: item.completed,
+                      })),
+                    );
+                  }}
+                >
+                  <option value="">{messages.tasks.noTemplate}</option>
+                  {TASK_TEMPLATES.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.tasks.title}</span>
                 <Input
@@ -225,12 +407,132 @@ export const TaskManager = ({
                 </select>
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                <span>{messages.tasks.tags}</span>
+                <Input
+                  placeholder={messages.tasks.tagsPlaceholder}
+                  value={watchedTags?.join(", ") ?? ""}
+                  onChange={(event) =>
+                    setValue(
+                      "tags",
+                      event.target.value
+                        .split(",")
+                        .map((tag) => tag.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                />
+              </label>
+              <label className="space-y-1 text-sm text-[var(--color-ink)]">
+                <span>{messages.tasks.dependencies}</span>
+                <select
+                  className="min-h-28 w-full rounded-xl border px-3 py-2"
+                  multiple
+                  value={watchedBlockedByTaskIds ?? []}
+                  onChange={(event) =>
+                    setValue(
+                      "blockedByTaskIds",
+                      Array.from(
+                        event.target.selectedOptions,
+                        (option) => option.value,
+                      ),
+                    )
+                  }
+                >
+                  {tasks
+                    .filter((task) => task.id !== selectedTask?.id)
+                    .map((task) => (
+                      <option key={task.id} value={task.id}>
+                        {task.title}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.tasks.notes}</span>
                 <Input
                   placeholder={messages.tasks.notes}
                   {...register("notes")}
                 />
               </label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-[var(--color-ink)]">
+                    {messages.tasks.checklist}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() =>
+                      setChecklistItems((current) => [
+                        ...current,
+                        { title: "", completed: false },
+                      ])
+                    }
+                  >
+                    {messages.tasks.addChecklistItem}
+                  </Button>
+                </div>
+                {checklistItems.length === 0 ? (
+                  <p className="text-sm text-[var(--color-muted-copy)]">
+                    {messages.tasks.checklistEmpty}
+                  </p>
+                ) : null}
+                <div className="space-y-2">
+                  {checklistItems.map((item, index) => (
+                    <div
+                      key={item.id ?? `draft-${index}`}
+                      className="flex gap-2"
+                    >
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={item.completed}
+                          onChange={(event) =>
+                            setChecklistItems((current) =>
+                              current.map((candidate, candidateIndex) =>
+                                candidateIndex === index
+                                  ? {
+                                      ...candidate,
+                                      completed: event.target.checked,
+                                    }
+                                  : candidate,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                      <Input
+                        value={item.title}
+                        placeholder={messages.tasks.checklistPlaceholder}
+                        onChange={(event) =>
+                          setChecklistItems((current) =>
+                            current.map((candidate, candidateIndex) =>
+                              candidateIndex === index
+                                ? { ...candidate, title: event.target.value }
+                                : candidate,
+                            ),
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          setChecklistItems((current) =>
+                            current.filter(
+                              (_candidate, candidateIndex) =>
+                                candidateIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        {messages.tasks.removeChecklistItem}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div className="flex gap-3">
                 <Button
                   className="rounded-full"
@@ -244,10 +546,7 @@ export const TaskManager = ({
                     type="button"
                     variant="outline"
                     className="rounded-full"
-                    onClick={() => {
-                      setSelectedTask(null);
-                      reset(emptyTaskForm);
-                    }}
+                    onClick={resetTaskForm}
                   >
                     {messages.guests.cancel}
                   </Button>
@@ -258,6 +557,29 @@ export const TaskManager = ({
         </Card>
       ) : null}
       <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {TASK_VIEW_PRESETS.map((preset) => (
+            <Button
+              key={preset}
+              type="button"
+              variant={
+                viewPresetHydrated && viewPreset === preset
+                  ? "default"
+                  : "outline"
+              }
+              className="rounded-full"
+              onClick={() => setViewPreset(preset)}
+            >
+              {messages.tasks.viewPresets[preset]}
+            </Button>
+          ))}
+          <a
+            href="/api/calendar"
+            className="inline-flex h-10 items-center justify-center rounded-full border border-white/70 bg-white/80 px-4 text-sm font-medium text-[var(--color-ink)] shadow-sm transition-colors hover:bg-white"
+          >
+            {messages.tasks.exportCalendar}
+          </a>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <select
             className="h-10 rounded-xl border px-3"
@@ -311,6 +633,56 @@ export const TaskManager = ({
             </Card>
           ))}
         </div>
+        {canEditTasks(viewerRole) ? (
+          <Card className="border-white/70 bg-white/85">
+            <CardContent className="flex flex-wrap items-center gap-3 p-5">
+              <label className="flex items-center gap-2 text-sm text-[var(--color-ink)]">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={(event) =>
+                    setSelectedTaskIds(
+                      event.target.checked
+                        ? visibleTasks.map((task) => task.id)
+                        : [],
+                    )
+                  }
+                />
+                {messages.tasks.selectVisible}
+              </label>
+              <span className="text-sm text-[var(--color-muted-copy)]">
+                {messages.tasks.selectedCount(selectedTaskIds.length)}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                disabled={selectedTaskIds.length === 0}
+                onClick={() => void bulkUpdateStatus("TODO")}
+              >
+                {messages.tasks.bulkTodo}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                disabled={selectedTaskIds.length === 0}
+                onClick={() => void bulkUpdateStatus("IN_PROGRESS")}
+              >
+                {messages.tasks.bulkInProgress}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                disabled={selectedTaskIds.length === 0}
+                onClick={() => void bulkUpdateStatus("DONE")}
+              >
+                {messages.tasks.bulkDone}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
         {visibleTasks.length === 0 ? (
           <p className="py-8 text-center text-sm text-[var(--color-muted-copy)]">
             {messages.tasks.empty}
@@ -331,6 +703,24 @@ export const TaskManager = ({
             <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-3">
+                  {canEditTasks(viewerRole) ? (
+                    <label className="flex items-center gap-2 text-sm text-[var(--color-ink)]">
+                      <input
+                        type="checkbox"
+                        checked={selectedTaskIds.includes(task.id)}
+                        onChange={(event) =>
+                          setSelectedTaskIds((current) =>
+                            event.target.checked
+                              ? [...current, task.id]
+                              : current.filter(
+                                  (candidate) => candidate !== task.id,
+                                ),
+                          )
+                        }
+                      />
+                      {messages.tasks.selectTask}
+                    </label>
+                  ) : null}
                   <label className="flex items-center gap-2 text-sm text-[var(--color-ink)]">
                     <input
                       type="checkbox"
@@ -341,16 +731,18 @@ export const TaskManager = ({
                           return;
                         }
                         try {
-                          const updated = await apiClient<
-                            TaskRecord & { notes: string }
-                          >(`/api/tasks/${task.id}`, {
-                            method: "PATCH",
-                            body: JSON.stringify({
-                              ...task,
-                              dueDate: toDateTimeLocalValue(task.dueDate),
-                              status: task.status === "DONE" ? "TODO" : "DONE",
-                            }),
-                          });
+                          const updated = await apiClient<TaskView>(
+                            `/api/tasks/${task.id}`,
+                            {
+                              method: "PATCH",
+                              body: JSON.stringify(
+                                toTaskPayload(task, {
+                                  status:
+                                    task.status === "DONE" ? "TODO" : "DONE",
+                                }),
+                              ),
+                            },
+                          );
                           setTasks((current) =>
                             sortTasks(
                               current.map((candidate) =>
@@ -384,9 +776,93 @@ export const TaskManager = ({
                   {messages.tasks.assignee}:{" "}
                   {messages.enums.taskAssignee[task.assignee]}
                 </p>
+                {task.tags.length > 0 ? (
+                  <p className="text-sm text-[var(--color-muted-copy)]">
+                    {messages.tasks.tagsLabel(task.tags.join(", "))}
+                  </p>
+                ) : null}
+                {task.blockedByTaskTitles.length > 0 ? (
+                  <p className="text-sm text-[var(--color-muted-copy)]">
+                    {messages.tasks.dependenciesLabel(
+                      task.blockedByTaskTitles.join(", "),
+                    )}
+                  </p>
+                ) : null}
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {task.notes}
                 </p>
+                {task.checklistItems.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm text-[var(--color-muted-copy)]">
+                      {messages.tasks.checklistProgress(
+                        task.checklistItems.filter((item) => item.completed)
+                          .length,
+                        task.checklistItems.length,
+                      )}
+                    </p>
+                    <div className="space-y-2">
+                      {task.checklistItems.map((item) => (
+                        <label
+                          key={item.id}
+                          className="flex items-center gap-2 text-sm text-[var(--color-ink)]"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={item.completed}
+                            disabled={!canEditTasks(viewerRole)}
+                            onChange={async () => {
+                              if (!canEditTasks(viewerRole)) {
+                                return;
+                              }
+                              try {
+                                const updated = await apiClient<TaskView>(
+                                  `/api/tasks/${task.id}`,
+                                  {
+                                    method: "PATCH",
+                                    body: JSON.stringify(
+                                      toTaskPayload(task, {
+                                        checklistItems: task.checklistItems.map(
+                                          (candidate) => ({
+                                            id: candidate.id,
+                                            title: candidate.title,
+                                            completed:
+                                              candidate.id === item.id
+                                                ? !candidate.completed
+                                                : candidate.completed,
+                                          }),
+                                        ),
+                                      }),
+                                    ),
+                                  },
+                                );
+                                setTasks((current) =>
+                                  sortTasks(
+                                    current.map((candidate) =>
+                                      candidate.id === updated.id
+                                        ? updated
+                                        : candidate,
+                                    ),
+                                  ),
+                                );
+                              } catch {
+                                toast.error(messages.common.actionError);
+                              }
+                            }}
+                          />
+                          <span
+                            className={
+                              item.completed
+                                ? "text-[var(--color-muted-copy)] line-through"
+                                : undefined
+                            }
+                          >
+                            {item.title}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="flex gap-3">
                 {canEditTasks(viewerRole) ? (

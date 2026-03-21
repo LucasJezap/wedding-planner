@@ -4,7 +4,7 @@ import { vi } from "vitest";
 
 import { GuestManager } from "@/features/guests/components/guest-manager";
 import { apiClient } from "@/lib/api-client";
-import { listGuests } from "@/services/guest-service";
+import { listGuests, listInvitationGroups } from "@/services/guest-service";
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: vi.fn(),
@@ -13,6 +13,7 @@ vi.mock("@/lib/api-client", () => ({
 describe("GuestManager", () => {
   it("renders guests and creates a new one", async () => {
     const guests = await listGuests();
+    const groups = await listInvitationGroups();
     vi.mocked(apiClient).mockResolvedValueOnce({
       ...guests[0]!,
       id: "new-guest",
@@ -23,15 +24,27 @@ describe("GuestManager", () => {
       email: "ruby@example.com",
       phone: "+48 500 500 500",
       notes: "New guest",
+      groupName: "Lane Household",
+      invitedGuestCount: 2,
+      allowsPlusOne: true,
+      groupNotes: "Family invite",
     });
+    vi.mocked(apiClient).mockResolvedValueOnce(groups);
 
-    render(<GuestManager initialGuests={guests} viewerRole="ADMIN" />);
+    render(
+      <GuestManager
+        initialGuests={guests}
+        initialGroups={groups}
+        viewerRole="ADMIN"
+      />,
+    );
 
     const user = userEvent.setup();
     await user.type(screen.getByPlaceholderText("Imię"), "Ruby");
     await user.type(screen.getByPlaceholderText("Nazwisko"), "Lane");
     await user.type(screen.getByPlaceholderText("Email"), "ruby@example.com");
     await user.type(screen.getByPlaceholderText("Telefon"), "+48 500 500 500");
+    await user.type(screen.getByPlaceholderText("Grupa"), "Lane Household");
     await user.click(screen.getByRole("button", { name: "Utwórz gościa" }));
 
     await waitFor(() =>
@@ -44,12 +57,13 @@ describe("GuestManager", () => {
     expect(screen.getAllByText("Zaproszenie doręczone").length).toBeGreaterThan(
       0,
     );
-  });
+  }, 10000);
 
   it("hides guest editing controls for read-only roles", async () => {
     render(
       <GuestManager
         initialGuests={await listGuests()}
+        initialGroups={await listInvitationGroups()}
         viewerRole="READ_ONLY"
       />,
     );

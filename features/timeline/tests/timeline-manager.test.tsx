@@ -16,6 +16,9 @@ describe("TimelineManager", () => {
     vi.mocked(apiClient).mockResolvedValueOnce({ eventId: events[0]!.id });
 
     render(<TimelineManager initialEvents={events} viewerRole="ADMIN" />);
+    expect(
+      screen.getByRole("link", { name: "Eksportuj kalendarz" }),
+    ).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getAllByRole("button", { name: "Usuń" })[0]!);
 

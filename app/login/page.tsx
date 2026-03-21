@@ -29,7 +29,11 @@ export default function LoginPage() {
     });
 
     if (result?.error) {
-      setError(messages.login.error);
+      setError(
+        result.error.includes("Too many")
+          ? messages.login.rateLimitError
+          : messages.login.error,
+      );
       return;
     }
 

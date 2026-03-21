@@ -13,7 +13,7 @@
     "test:e2e": "playwright test",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prepare": "husky",
+    "prepare": "node .husky/install.mjs",
     "seed": "tsx scripts/seed.ts"
   },
   "lint-staged": {

@@ -989,39 +989,41 @@ export const prismaPlannerRepository: PlannerRepository = {
     return toTaskRecord(created);
   },
   async updateTask(taskId, task, note, checklistItems) {
-    const updated = await db.$transaction(async (tx) => {
-      const updatedTask = await tx.task.update({
-        where: { id: taskId },
-        data: {
-          title: task.title,
-          description: task.description,
-          dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-          priority: task.priority,
-          status: task.status,
-          assignee: task.assignee,
-          tags: task.tags,
-          blockedByTaskIds: task.blockedByTaskIds,
-        },
-      });
-
-      await tx.taskChecklistItem.deleteMany({
-        where: { taskId },
-      });
-
-      if (checklistItems.length > 0) {
-        await tx.taskChecklistItem.createMany({
-          data: checklistItems.map((item, index) => ({
-            weddingId: item.weddingId,
-            taskId,
-            title: item.title,
-            completed: item.completed,
-            sortOrder: index,
-          })),
+    const updated = await db.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const updatedTask = await tx.task.update({
+          where: { id: taskId },
+          data: {
+            title: task.title,
+            description: task.description,
+            dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+            priority: task.priority,
+            status: task.status,
+            assignee: task.assignee,
+            tags: task.tags,
+            blockedByTaskIds: task.blockedByTaskIds,
+          },
         });
-      }
 
-      return updatedTask;
-    });
+        await tx.taskChecklistItem.deleteMany({
+          where: { taskId },
+        });
+
+        if (checklistItems.length > 0) {
+          await tx.taskChecklistItem.createMany({
+            data: checklistItems.map((item, index) => ({
+              weddingId: item.weddingId,
+              taskId,
+              title: item.title,
+              completed: item.completed,
+              sortOrder: index,
+            })),
+          });
+        }
+
+        return updatedTask;
+      },
+    );
 
     await db.note.upsert({
       where: { taskId },

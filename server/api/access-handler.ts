@@ -1,7 +1,7 @@
 import type {
   AccountActivationInput,
   AccountInput,
-  AccountRoleUpdateInput,
+  AccountUpdateInput,
 } from "@/features/access/types/access";
 import {
   acceptInvitation,
@@ -9,7 +9,7 @@ import {
   getInvitationByToken,
   listAccountInvitations,
   listAccounts,
-  updateAccountRole,
+  updateAccount,
 } from "@/services/auth-service";
 import { getRepository } from "@/db/repositories";
 
@@ -28,10 +28,10 @@ export const createAccountHandler = async (
   });
 };
 
-export const updateAccountRoleHandler = async (
+export const updateAccountHandler = async (
   userId: string,
-  input: AccountRoleUpdateInput,
-) => updateAccountRole(userId, input.role);
+  input: AccountUpdateInput,
+) => updateAccount(userId, input);
 
 export const getInvitationHandler = async (token: string) =>
   getInvitationByToken(token);

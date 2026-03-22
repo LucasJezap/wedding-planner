@@ -86,13 +86,10 @@ describe("guest-service", () => {
       notes: "Childhood friend",
       groupName: "Stone Household",
       invitedGuestCount: 2,
-      allowsPlusOne: true,
-      groupNotes: "Can confirm one guest later.",
     });
 
     expect(created.fullName).toBe("Amelia Stone");
     expect(created.groupName).toBe("Stone Household");
-    expect(created.allowsPlusOne).toBe(true);
 
     const updated = await updateGuest(created.id, {
       rsvpStatus: "ATTENDING",
@@ -146,23 +143,17 @@ describe("guest-service", () => {
     const updated = await updateGuest(emma!.id, {
       groupName: "Cole Family",
       invitedGuestCount: 3,
-      allowsPlusOne: true,
-      groupNotes: "Merged household",
       rsvpStatus: "ATTENDING",
       dietaryRestrictions: ["VEGETARIAN"],
     });
 
     expect(updated.groupName).toBe("Cole Family");
     expect(updated.invitedGuestCount).toBe(3);
-    expect(updated.allowsPlusOne).toBe(true);
-    expect(updated.groupNotes).toBe("Merged household");
 
     const groups = await listInvitationGroups();
     expect(groups.find((group) => group.name === "Hart Family")).toBeTruthy();
     expect(groups.find((group) => group.name === "Cole Family")).toMatchObject({
       invitedGuestCount: 3,
-      allowsPlusOne: true,
-      notes: "Merged household",
     });
   });
 
@@ -182,15 +173,11 @@ describe("guest-service", () => {
       notes: "",
       groupName: "Ivy Household",
       invitedGuestCount: 1,
-      allowsPlusOne: false,
-      groupNotes: "",
     });
 
     await updateGuest(created.id, {
       groupName: "",
       invitedGuestCount: 1,
-      allowsPlusOne: false,
-      groupNotes: "",
     });
 
     const groups = await listInvitationGroups();
@@ -213,8 +200,6 @@ describe("guest-service", () => {
       rsvpStatus: "ATTENDING",
       groupName: "Mills Household",
       invitedGuestCount: 2,
-      allowsPlusOne: false,
-      groupNotes: "Moved in bulk",
     });
 
     expect(
@@ -228,7 +213,6 @@ describe("guest-service", () => {
     ).toMatchObject({
       memberCount: 2,
       invitedGuestCount: 2,
-      notes: "Moved in bulk",
     });
   });
 
@@ -276,8 +260,6 @@ describe("guest-service", () => {
       notes: "",
       groupName: "Pine Household",
       invitedGuestCount: 2,
-      allowsPlusOne: false,
-      groupNotes: "",
     });
     const createdB = await createGuest({
       firstName: "Milo",
@@ -294,8 +276,6 @@ describe("guest-service", () => {
       notes: "",
       groupName: "Pine Household",
       invitedGuestCount: 2,
-      allowsPlusOne: false,
-      groupNotes: "",
     });
 
     await bulkDeleteGuests([createdA.id, createdB.id]);

@@ -114,6 +114,11 @@ export const SeatingPlanner = ({
   const [previewMode, setPreviewMode] = useState(false);
   const [seatEditor, setSeatEditor] = useState<SeatEditorState | null>(null);
   const [hoveredSlotIndex, setHoveredSlotIndex] = useState<number | null>(null);
+  const [previewTooltip, setPreviewTooltip] = useState<{
+    label: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [draggingGuest, setDraggingGuest] = useState<DraggingGuestState | null>(
     null,
   );
@@ -497,7 +502,6 @@ export const SeatingPlanner = ({
                       return (
                         <div
                           key={seat.id}
-                          title={seat.guestName ?? seat.label}
                           className={`absolute flex items-center justify-center rounded-full border text-[10px] font-semibold ${
                             seat.guestName
                               ? "border-[#b66f87] bg-[#d89bae] text-white"
@@ -509,11 +513,39 @@ export const SeatingPlanner = ({
                             left: chair.x * previewScale - previewChairRadius,
                             top: chair.y * previewScale - previewChairRadius,
                           }}
+                          onMouseEnter={() =>
+                            setPreviewTooltip({
+                              label: seat.guestName ?? seat.label,
+                              x: chair.x * previewScale,
+                              y:
+                                chair.y * previewScale - previewChairRadius - 8,
+                            })
+                          }
+                          onMouseMove={() =>
+                            setPreviewTooltip({
+                              label: seat.guestName ?? seat.label,
+                              x: chair.x * previewScale,
+                              y:
+                                chair.y * previewScale - previewChairRadius - 8,
+                            })
+                          }
+                          onMouseLeave={() => setPreviewTooltip(null)}
                         >
                           {seat.guestName ? acronym : seat.label}
                         </div>
                       );
                     })}
+                    {previewTooltip ? (
+                      <div
+                        className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-full bg-[var(--color-ink)] px-3 py-1 text-xs text-white shadow-[0_12px_30px_rgba(59,47,52,0.2)]"
+                        style={{
+                          left: previewTooltip.x,
+                          top: previewTooltip.y,
+                        }}
+                      >
+                        {previewTooltip.label}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               );

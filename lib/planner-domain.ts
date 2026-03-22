@@ -175,6 +175,8 @@ export type BudgetCategoryRecord = {
   weddingId: string;
   name: string;
   plannedAmount: number;
+  estimateMin: number;
+  estimateMax: number;
   color: string;
   notes: string;
   createdAt: string;
@@ -313,8 +315,6 @@ export type GuestView = GuestRecord & {
   notes: string;
   tableName?: string;
   invitedGuestCount?: number;
-  allowsPlusOne?: boolean;
-  groupNotes?: string;
 };
 
 export type InvitationGroupView = InvitationGroupRecord & {
@@ -335,15 +335,12 @@ export type VendorView = VendorRecord & {
 
 export type BudgetCategoryView = BudgetCategoryRecord & {
   paidAmount: number;
-  estimatedAmount: number;
   actualAmount: number;
   remainingAmount: number;
 };
 
 export type TaskView = TaskRecord & {
   notes: string;
-  checklistItems: TaskChecklistItemRecord[];
-  blockedByTaskTitles: string[];
 };
 
 export type ExpenseView = ExpenseRecord & {
@@ -371,12 +368,6 @@ export type DashboardData = {
         id: `TASK:${TaskAssignee}`;
         type: "TASK_ASSIGNEE";
         value: TaskAssignee;
-        label: string;
-      }
-    | {
-        id: `VENDOR:${string}`;
-        type: "VENDOR_OWNER";
-        value: string;
         label: string;
       }
   >;
@@ -408,6 +399,7 @@ export type DashboardData = {
   nextEvents: TimelineEventRecord[];
   categorySpend: Array<{
     name: string;
+    color: string;
     planned: number;
     actual: number;
     remaining: number;
@@ -464,13 +456,11 @@ export type DashboardData = {
     categoryName: string;
     status: VendorStatus;
     followUpDate: string;
-    owner: string;
   }>;
   vendorsMissingContact: Array<{
     id: string;
     name: string;
     categoryName: string;
-    owner: string;
     hasEmail: boolean;
     hasPhone: boolean;
   }>;
@@ -515,23 +505,12 @@ export type DashboardData = {
       href: string;
     }>;
   };
-  activityFeed: Array<{
-    id: string;
-    type: "TASK" | "GUEST" | "VENDOR" | "EXPENSE" | "TIMELINE";
-    title: string;
-    detail: string;
-    updatedAt: string;
-    href: string;
-    taskAssignee?: TaskAssignee;
-    vendorOwner?: string;
-  }>;
   decisionQueue: Array<{
     id: string;
     title: string;
     detail: string;
     href: string;
     taskAssignee?: TaskAssignee;
-    vendorOwner?: string;
   }>;
   quickActions: Array<{
     id: "ADD_GUEST" | "ADD_TASK" | "ADD_EXPENSE" | "ADD_TIMELINE_EVENT";

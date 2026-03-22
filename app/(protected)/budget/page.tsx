@@ -3,7 +3,6 @@ import { BudgetManager } from "@/features/budget/components/budget-manager";
 import { getRequestMessages } from "@/lib/i18n-server";
 import { requirePageAccess } from "@/lib/require-auth";
 import { getBudgetOverview } from "@/services/budget-service";
-import { listVendors } from "@/services/vendor-service";
 
 export default async function BudgetPage() {
   await requirePageAccess("budget");
@@ -19,7 +18,6 @@ export default async function BudgetPage() {
       <BudgetManager
         initialCategories={budget.categories}
         initialExpenses={budget.expenses}
-        vendors={await listVendors()}
       />
     </PageShell>
   );

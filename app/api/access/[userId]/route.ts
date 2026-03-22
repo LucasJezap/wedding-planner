@@ -1,6 +1,6 @@
 import { errorResponse, successResponse } from "@/server/api/helpers";
 import { getRequiredSession } from "@/lib/require-auth";
-import { updateAccountRoleHandler } from "@/server/api/access-handler";
+import { updateAccountHandler } from "@/server/api/access-handler";
 
 type Context = {
   params: Promise<{
@@ -16,7 +16,7 @@ export const PATCH = async (request: Request, context: Context) => {
     }
     const { userId } = await context.params;
     return successResponse(
-      await updateAccountRoleHandler(userId, await request.json()),
+      await updateAccountHandler(userId, await request.json()),
     );
   } catch (error) {
     return errorResponse(

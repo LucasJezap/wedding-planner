@@ -1,0 +1,3 @@
+ALTER TABLE "budget_categories"
+ADD COLUMN "estimate_min" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN "estimate_max" DECIMAL(10,2) NOT NULL DEFAULT 0;

@@ -34,7 +34,6 @@ describe("dashboard-service", () => {
     expect(data.attentionStats.overdueTasks).toBeGreaterThan(0);
     expect(data.attentionStats.vendorFollowUps).toBeGreaterThan(0);
     expect(data.attentionStats.overdueExpenses).toBeGreaterThanOrEqual(0);
-    expect(data.activityFeed.length).toBeGreaterThan(0);
     expect(data.decisionQueue.length).toBeGreaterThan(0);
     expect(data.quickActions.length).toBeGreaterThan(0);
     expect(data.responsibilityOptions.map((option) => option.id)).toEqual(
@@ -43,7 +42,6 @@ describe("dashboard-service", () => {
         "TASK:BRIDE",
         "TASK:COUPLE",
         "TASK:WITNESSES",
-        "VENDOR:Kasia",
       ]),
     );
     expect(data.vendorsMissingContact[0]?.name).toBe("Northlight Stories");
@@ -56,7 +54,9 @@ describe("dashboard-service", () => {
     expect(data.overdueTasks[0]?.title).toBe("Approve invitation proof");
     expect(
       data.categorySpend.every(
-        (category) => typeof category.remaining === "number",
+        (category) =>
+          typeof category.remaining === "number" &&
+          typeof category.color === "string",
       ),
     ).toBe(true);
   });

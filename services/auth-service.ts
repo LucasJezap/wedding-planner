@@ -3,7 +3,10 @@ import { compare, hash } from "bcryptjs";
 
 import { getRepository } from "@/db/repositories";
 import type { UserRole } from "@/lib/planner-domain";
-import { accountActivationSchema } from "@/features/access/types/access";
+import {
+  accountActivationSchema,
+  accountUpdateSchema,
+} from "@/features/access/types/access";
 import { sendAccountInvitationEmail } from "@/services/email-service";
 import { getActivationUrl } from "@/lib/invitation";
 import {
@@ -108,6 +111,42 @@ export const createAccountInvitation = async (input: {
 export const updateAccountRole = async (userId: string, role: UserRole) => {
   const repository = getRepository();
   return repository.updateUser(userId, { role });
+};
+
+export const updateAccount = async (
+  userId: string,
+  input: {
+    name: string;
+    email: string;
+    role: UserRole;
+    password?: string;
+    confirmPassword?: string;
+  },
+) => {
+  const repository = getRepository();
+  const data = accountUpdateSchema.parse({
+    ...input,
+    password: input.password ?? "",
+    confirmPassword: input.confirmPassword ?? "",
+  });
+
+  const users = await repository.listUsers();
+  const duplicateUser = users.find(
+    (user) =>
+      user.id !== userId &&
+      user.email.trim().toLowerCase() === data.email.trim().toLowerCase(),
+  );
+  if (duplicateUser) {
+    throw new Error("Account already exists");
+  }
+
+  return repository.updateUser(userId, {
+    name: data.name.trim(),
+    email: data.email.trim().toLowerCase(),
+    role: data.role,
+    passwordHash:
+      data.password.length > 0 ? await hash(data.password, 8) : undefined,
+  });
 };
 
 export const getInvitationByToken = async (token: string) => {

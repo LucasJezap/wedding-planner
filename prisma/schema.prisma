@@ -276,6 +276,8 @@ model BudgetCategory {
   weddingId     String    @map("wedding_id")
   name          String
   plannedAmount Decimal   @db.Decimal(10, 2) @map("planned_amount")
+  estimateMin   Decimal   @default(0) @db.Decimal(10, 2) @map("estimate_min")
+  estimateMax   Decimal   @default(0) @db.Decimal(10, 2) @map("estimate_max")
   color         String    @default("#D89BAE")
   notes         String    @default("")
   createdAt     DateTime  @default(now()) @map("created_at")

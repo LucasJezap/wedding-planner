@@ -10,6 +10,7 @@ const createGuest = (
 
   return {
     id,
+    weddingId: "wedding-1",
     firstName: firstName ?? "",
     lastName: lastName ?? "",
     fullName,
@@ -26,8 +27,8 @@ const createGuest = (
     notes: "",
     groupName,
     invitedGuestCount: 2,
-    allowsPlusOne: false,
-    groupNotes: "",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
   };
 };
 

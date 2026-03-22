@@ -5,7 +5,6 @@ import { vi } from "vitest";
 import { BudgetManager } from "@/features/budget/components/budget-manager";
 import { apiClient } from "@/lib/api-client";
 import { getBudgetOverview } from "@/services/budget-service";
-import { listVendors } from "@/services/vendor-service";
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: vi.fn(),
@@ -36,15 +35,23 @@ describe("BudgetManager", () => {
       <BudgetManager
         initialCategories={budget.categories}
         initialExpenses={budget.expenses}
-        vendors={await listVendors()}
       />,
     );
 
     const user = userEvent.setup();
+    await user.selectOptions(
+      screen.getByLabelText("Kategoria wydatku"),
+      budget.categories[0]!.id,
+    );
     await user.type(screen.getByLabelText("Nazwa wydatku"), "Extra blooms");
+    await user.clear(screen.getByLabelText("Rzeczywisty koszt"));
+    await user.type(screen.getByLabelText("Rzeczywisty koszt"), "1");
     await user.click(screen.getByRole("button", { name: "Utwórz wydatek" }));
 
     await waitFor(() => expect(apiClient).toHaveBeenCalled());
     expect(screen.getByText("Podsumowanie budżetu")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("Extra blooms")).toBeInTheDocument(),
+    );
   }, 10000);
 });

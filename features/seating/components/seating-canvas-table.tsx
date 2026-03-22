@@ -64,31 +64,31 @@ const getSeatNameBlockLayout = (
   if (shape === "RECTANGULAR") {
     if (chairPosition.y < TABLE_CENTER.y) {
       return {
-        x: chairPosition.x - 72,
-        y: chairPosition.y + 44,
+        x: chairPosition.x - 86,
+        y: chairPosition.y + 54,
         width: 144,
         align: "center" as const,
       };
     }
     if (chairPosition.y > TABLE_CENTER.y) {
       return {
-        x: chairPosition.x - 72,
-        y: chairPosition.y - 58,
+        x: chairPosition.x - 86,
+        y: chairPosition.y - 72,
         width: 144,
         align: "center" as const,
       };
     }
     if (chairPosition.x < TABLE_CENTER.x) {
       return {
-        x: chairPosition.x + 46,
-        y: chairPosition.y - 10,
+        x: chairPosition.x + 56,
+        y: chairPosition.y - 12,
         width: 116,
         align: "left" as const,
       };
     }
     return {
-      x: chairPosition.x - 162,
-      y: chairPosition.y - 10,
+      x: chairPosition.x - 176,
+      y: chairPosition.y - 12,
       width: 116,
       align: "right" as const,
     };
@@ -96,8 +96,8 @@ const getSeatNameBlockLayout = (
 
   if (chairPosition.x < TABLE_CENTER.x - 28) {
     return {
-      x: chairPosition.x + 26,
-      y: chairPosition.y - 10,
+      x: chairPosition.x + 38,
+      y: chairPosition.y - 12,
       width: 116,
       align: "left" as const,
     };
@@ -105,19 +105,19 @@ const getSeatNameBlockLayout = (
 
   if (chairPosition.x > TABLE_CENTER.x + 28) {
     return {
-      x: chairPosition.x - 142,
-      y: chairPosition.y - 10,
+      x: chairPosition.x - 154,
+      y: chairPosition.y - 12,
       width: 116,
       align: "right" as const,
     };
   }
 
   return {
-    x: chairPosition.x - 72,
+    x: chairPosition.x - 86,
     y:
       chairPosition.y < TABLE_CENTER.y
-        ? chairPosition.y + 44
-        : chairPosition.y - 58,
+        ? chairPosition.y + 54
+        : chairPosition.y - 72,
     width: 144,
     align: "center" as const,
   };

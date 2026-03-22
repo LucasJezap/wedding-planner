@@ -45,6 +45,8 @@ export const PATCH = async (request: Request) => {
       categoryId: string;
       name?: string;
       plannedAmount: number;
+      estimateMin: number;
+      estimateMax: number;
       color?: string;
       notes?: string;
     };
@@ -52,6 +54,8 @@ export const PATCH = async (request: Request) => {
       await updateBudgetCategoryHandler(body.categoryId, {
         name: body.name ?? "",
         plannedAmount: body.plannedAmount,
+        estimateMin: body.estimateMin,
+        estimateMax: body.estimateMax,
         color: body.color ?? "#D89BAE",
         notes: body.notes ?? "",
       }),

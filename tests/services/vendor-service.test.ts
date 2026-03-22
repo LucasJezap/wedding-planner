@@ -19,7 +19,6 @@ describe("vendor-service", () => {
       categoryId: categories[0]!.id,
       cost: 1800,
       status: "CONTACTED",
-      owner: "Lukasz",
       bookingDate: "",
       followUpDate: "2026-04-12T10:00",
       depositAmount: 300,

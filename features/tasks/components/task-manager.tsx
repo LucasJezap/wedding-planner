@@ -13,26 +13,17 @@ import { Input } from "@/components/ui/input";
 import { useTaskBuckets } from "@/features/tasks/hooks/use-task-buckets";
 import { TASK_TEMPLATES } from "@/features/tasks/lib/task-templates";
 import { taskInputSchema } from "@/features/tasks/types/task";
-import type {
-  TaskChecklistItemInput,
-  TaskInput,
-  TaskView,
-} from "@/features/tasks/types/task";
+import type { TaskInput, TaskView } from "@/features/tasks/types/task";
 import { canCreateTasks, canEditTasks } from "@/lib/access-control";
-import type { UserRole } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
 import { toDateTimeLocalValue } from "@/lib/date-time";
 import { formatDate } from "@/lib/format";
+import type { UserRole } from "@/lib/planner-domain";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
 const statusOrder = { TODO: 0, IN_PROGRESS: 1, DONE: 2 } as const;
 const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 } as const;
-const TASK_VIEW_PRESETS = [
-  "ALL",
-  "OVERDUE",
-  "NEXT_14_DAYS",
-  "CHECKLIST_OPEN",
-] as const;
+const TASK_VIEW_PRESETS = ["ALL", "OVERDUE", "NEXT_14_DAYS"] as const;
 type TaskViewPreset = (typeof TASK_VIEW_PRESETS)[number];
 
 const sortTasks = (items: TaskView[]) =>
@@ -43,17 +34,6 @@ const sortTasks = (items: TaskView[]) =>
       priorityOrder[left.priority] - priorityOrder[right.priority]
     );
   });
-
-const toChecklistInput = (
-  items: Array<{ id?: string; title: string; completed: boolean }>,
-): TaskChecklistItemInput[] =>
-  items
-    .map((item) => ({
-      id: item.id,
-      title: item.title.trim(),
-      completed: item.completed,
-    }))
-    .filter((item) => item.title.length > 0);
 
 const toTaskPayload = (
   task: TaskView,
@@ -66,13 +46,7 @@ const toTaskPayload = (
   status: task.status,
   assignee: task.assignee,
   tags: task.tags,
-  blockedByTaskIds: task.blockedByTaskIds,
   notes: task.notes,
-  checklistItems: task.checklistItems.map((item) => ({
-    id: item.id,
-    title: item.title,
-    completed: item.completed,
-  })),
   ...overrides,
 });
 
@@ -94,12 +68,6 @@ const filterByViewPreset = (
         const dueAt = new Date(task.dueDate).getTime();
         return task.status !== "DONE" && dueAt >= now && dueAt <= twoWeeks;
       });
-    case "CHECKLIST_OPEN":
-      return tasks.filter(
-        (task) =>
-          task.status !== "DONE" &&
-          task.checklistItems.some((item) => !item.completed),
-      );
     default:
       return tasks;
   }
@@ -115,9 +83,6 @@ export const TaskManager = ({
   const { locale, messages } = useLocale();
   const [tasks, setTasks] = useState(sortTasks(initialTasks));
   const [selectedTask, setSelectedTask] = useState<TaskView | null>(null);
-  const [checklistItems, setChecklistItems] = useState<
-    TaskChecklistItemInput[]
-  >([]);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | TaskInput["status"]>(
@@ -138,9 +103,7 @@ export const TaskManager = ({
     status: "TODO",
     assignee: viewerRole === "WITNESS" ? "WITNESSES" : "COUPLE",
     tags: [],
-    blockedByTaskIds: [],
     notes: "",
-    checklistItems: [],
   };
   const {
     register,
@@ -154,26 +117,22 @@ export const TaskManager = ({
     resolver: zodResolver(taskInputSchema) as never,
   });
   const watchedTags = watch("tags");
-  const watchedBlockedByTaskIds = watch("blockedByTaskIds");
 
   const resetTaskForm = () => {
     setSelectedTask(null);
-    setChecklistItems([]);
     setSelectedTemplateId("");
     reset(emptyTaskForm);
   };
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      const normalizedChecklistItems = toChecklistInput(checklistItems);
       const payload =
         viewerRole === "WITNESS"
           ? {
               ...values,
               assignee: "WITNESSES" as const,
-              checklistItems: normalizedChecklistItems,
             }
-          : { ...values, checklistItems: normalizedChecklistItems };
+          : values;
 
       if (selectedTask) {
         const updated = await apiClient<TaskView>(
@@ -221,21 +180,8 @@ export const TaskManager = ({
       status: task.status,
       assignee: task.assignee,
       tags: task.tags,
-      blockedByTaskIds: task.blockedByTaskIds,
       notes: task.notes,
-      checklistItems: task.checklistItems.map((item) => ({
-        id: item.id,
-        title: item.title,
-        completed: item.completed,
-      })),
     });
-    setChecklistItems(
-      task.checklistItems.map((item) => ({
-        id: item.id,
-        title: item.title,
-        completed: item.completed,
-      })),
-    );
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -251,11 +197,7 @@ export const TaskManager = ({
           .map((task) =>
             apiClient<TaskView>(`/api/tasks/${task.id}`, {
               method: "PATCH",
-              body: JSON.stringify(
-                toTaskPayload(task, {
-                  status,
-                }),
-              ),
+              body: JSON.stringify(toTaskPayload(task, { status })),
             }),
           ),
       );
@@ -311,12 +253,6 @@ export const TaskManager = ({
                       ...template.values,
                       dueDate: toDateTimeLocalValue(new Date().toISOString()),
                     });
-                    setChecklistItems(
-                      (template.values.checklistItems ?? []).map((item) => ({
-                        title: item.title,
-                        completed: item.completed,
-                      })),
-                    );
                   }}
                 >
                   <option value="">{messages.tasks.noTemplate}</option>
@@ -423,116 +359,12 @@ export const TaskManager = ({
                 />
               </label>
               <label className="space-y-1 text-sm text-[var(--color-ink)]">
-                <span>{messages.tasks.dependencies}</span>
-                <select
-                  className="min-h-28 w-full rounded-xl border px-3 py-2"
-                  multiple
-                  value={watchedBlockedByTaskIds ?? []}
-                  onChange={(event) =>
-                    setValue(
-                      "blockedByTaskIds",
-                      Array.from(
-                        event.target.selectedOptions,
-                        (option) => option.value,
-                      ),
-                    )
-                  }
-                >
-                  {tasks
-                    .filter((task) => task.id !== selectedTask?.id)
-                    .map((task) => (
-                      <option key={task.id} value={task.id}>
-                        {task.title}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label className="space-y-1 text-sm text-[var(--color-ink)]">
                 <span>{messages.tasks.notes}</span>
                 <Input
                   placeholder={messages.tasks.notes}
                   {...register("notes")}
                 />
               </label>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-[var(--color-ink)]">
-                    {messages.tasks.checklist}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={() =>
-                      setChecklistItems((current) => [
-                        ...current,
-                        { title: "", completed: false },
-                      ])
-                    }
-                  >
-                    {messages.tasks.addChecklistItem}
-                  </Button>
-                </div>
-                {checklistItems.length === 0 ? (
-                  <p className="text-sm text-[var(--color-muted-copy)]">
-                    {messages.tasks.checklistEmpty}
-                  </p>
-                ) : null}
-                <div className="space-y-2">
-                  {checklistItems.map((item, index) => (
-                    <div
-                      key={item.id ?? `draft-${index}`}
-                      className="flex gap-2"
-                    >
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={item.completed}
-                          onChange={(event) =>
-                            setChecklistItems((current) =>
-                              current.map((candidate, candidateIndex) =>
-                                candidateIndex === index
-                                  ? {
-                                      ...candidate,
-                                      completed: event.target.checked,
-                                    }
-                                  : candidate,
-                              ),
-                            )
-                          }
-                        />
-                      </label>
-                      <Input
-                        value={item.title}
-                        placeholder={messages.tasks.checklistPlaceholder}
-                        onChange={(event) =>
-                          setChecklistItems((current) =>
-                            current.map((candidate, candidateIndex) =>
-                              candidateIndex === index
-                                ? { ...candidate, title: event.target.value }
-                                : candidate,
-                            ),
-                          )
-                        }
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() =>
-                          setChecklistItems((current) =>
-                            current.filter(
-                              (_candidate, candidateIndex) =>
-                                candidateIndex !== index,
-                            ),
-                          )
-                        }
-                      >
-                        {messages.tasks.removeChecklistItem}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
               <div className="flex gap-3">
                 <Button
                   className="rounded-full"
@@ -781,88 +613,9 @@ export const TaskManager = ({
                     {messages.tasks.tagsLabel(task.tags.join(", "))}
                   </p>
                 ) : null}
-                {task.blockedByTaskTitles.length > 0 ? (
-                  <p className="text-sm text-[var(--color-muted-copy)]">
-                    {messages.tasks.dependenciesLabel(
-                      task.blockedByTaskTitles.join(", "),
-                    )}
-                  </p>
-                ) : null}
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {task.notes}
                 </p>
-                {task.checklistItems.length > 0 ? (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-sm text-[var(--color-muted-copy)]">
-                      {messages.tasks.checklistProgress(
-                        task.checklistItems.filter((item) => item.completed)
-                          .length,
-                        task.checklistItems.length,
-                      )}
-                    </p>
-                    <div className="space-y-2">
-                      {task.checklistItems.map((item) => (
-                        <label
-                          key={item.id}
-                          className="flex items-center gap-2 text-sm text-[var(--color-ink)]"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={item.completed}
-                            disabled={!canEditTasks(viewerRole)}
-                            onChange={async () => {
-                              if (!canEditTasks(viewerRole)) {
-                                return;
-                              }
-                              try {
-                                const updated = await apiClient<TaskView>(
-                                  `/api/tasks/${task.id}`,
-                                  {
-                                    method: "PATCH",
-                                    body: JSON.stringify(
-                                      toTaskPayload(task, {
-                                        checklistItems: task.checklistItems.map(
-                                          (candidate) => ({
-                                            id: candidate.id,
-                                            title: candidate.title,
-                                            completed:
-                                              candidate.id === item.id
-                                                ? !candidate.completed
-                                                : candidate.completed,
-                                          }),
-                                        ),
-                                      }),
-                                    ),
-                                  },
-                                );
-                                setTasks((current) =>
-                                  sortTasks(
-                                    current.map((candidate) =>
-                                      candidate.id === updated.id
-                                        ? updated
-                                        : candidate,
-                                    ),
-                                  ),
-                                );
-                              } catch {
-                                toast.error(messages.common.actionError);
-                              }
-                            }}
-                          />
-                          <span
-                            className={
-                              item.completed
-                                ? "text-[var(--color-muted-copy)] line-through"
-                                : undefined
-                            }
-                          >
-                            {item.title}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
               </div>
               <div className="flex gap-3">
                 {canEditTasks(viewerRole) ? (

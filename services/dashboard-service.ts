@@ -151,7 +151,6 @@ export const getDashboardData = async (options?: {
       categoryName: vendor.categoryName,
       status: vendor.status,
       followUpDate: vendor.followUpDate!,
-      owner: vendor.owner,
     }));
   const vendorsMissingContact = vendors
     .filter(
@@ -166,7 +165,6 @@ export const getDashboardData = async (options?: {
       id: vendor.id,
       name: vendor.name,
       categoryName: vendor.categoryName,
-      owner: vendor.owner,
       hasEmail: vendor.contactEmail.trim().length > 0,
       hasPhone: vendor.contactPhone.trim().length > 0,
     }));
@@ -241,67 +239,7 @@ export const getDashboardData = async (options?: {
       value: assignee,
       label: assignee.toLowerCase(),
     })),
-    ...Array.from(
-      new Set(
-        vendors
-          .map((vendor) => vendor.owner.trim())
-          .filter((owner) => owner.length > 0),
-      ),
-    )
-      .sort((left, right) => left.localeCompare(right))
-      .map((owner) => ({
-        id: `VENDOR:${owner}` as const,
-        type: "VENDOR_OWNER" as const,
-        value: owner,
-        label: owner,
-      })),
   ];
-  const activityFeed = [
-    ...visibleTasks.map((task) => ({
-      id: `task-${task.id}`,
-      type: "TASK" as const,
-      title: task.title,
-      detail: `Task · ${task.status} · ${task.assignee}`,
-      updatedAt: task.updatedAt,
-      href: `/tasks#task-${task.id}`,
-      taskAssignee: task.assignee,
-    })),
-    ...guests.map((guest) => ({
-      id: `guest-${guest.id}`,
-      type: "GUEST" as const,
-      title: guest.fullName,
-      detail: `Guest · ${guest.rsvpStatus}`,
-      updatedAt: guest.updatedAt,
-      href: `/guests#guest-${guest.id}`,
-    })),
-    ...vendors.map((vendor) => ({
-      id: `vendor-${vendor.id}`,
-      type: "VENDOR" as const,
-      title: vendor.name,
-      detail: `Vendor · ${vendor.status}`,
-      updatedAt: vendor.updatedAt,
-      href: `/vendors#vendor-${vendor.id}`,
-      vendorOwner: vendor.owner,
-    })),
-    ...budget.expenses.map((expense) => ({
-      id: `expense-${expense.id}`,
-      type: "EXPENSE" as const,
-      title: expense.name,
-      detail: `Expense · ${expense.categoryName}`,
-      updatedAt: expense.updatedAt,
-      href: `/budget#expense-${expense.id}`,
-    })),
-    ...events.map((event) => ({
-      id: `timeline-${event.id}`,
-      type: "TIMELINE" as const,
-      title: event.title,
-      detail: `Timeline · ${event.location}`,
-      updatedAt: event.updatedAt,
-      href: `/timeline#timeline-${event.id}`,
-    })),
-  ]
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-    .slice(0, 8);
   const decisionQueue = [
     ...attentionTasks.slice(0, 2).map((task) => ({
       id: `decision-task-${task.id}`,
@@ -331,9 +269,8 @@ export const getDashboardData = async (options?: {
     ...vendorsMissingContact.slice(0, 1).map((vendor) => ({
       id: `decision-vendor-contact-${vendor.id}`,
       title: `Uzupełnij kontakt do: ${vendor.name}`,
-      detail: `Owner: ${vendor.owner || "nieprzypisany"}`,
+      detail: vendor.categoryName,
       href: `/vendors#vendor-${vendor.id}`,
-      vendorOwner: vendor.owner,
     })),
     ...paymentAlerts.slice(0, 1).map((expense) => ({
       id: `decision-payment-${expense.id}`,
@@ -421,6 +358,7 @@ export const getDashboardData = async (options?: {
     nextEvents: events.slice(0, 3),
     categorySpend: budget.categories.map((category) => ({
       name: category.name,
+      color: category.color,
       planned: category.plannedAmount,
       actual: category.actualAmount,
       remaining: category.remainingAmount,
@@ -436,7 +374,6 @@ export const getDashboardData = async (options?: {
     paymentAlerts,
     upcomingPayments,
     todayFocus,
-    activityFeed,
     decisionQueue,
     quickActions: [
       { id: "ADD_GUEST", href: "/guests" },

@@ -26,8 +26,6 @@ describe("GuestManager", () => {
       notes: "New guest",
       groupName: "Lane Household",
       invitedGuestCount: 2,
-      allowsPlusOne: true,
-      groupNotes: "Family invite",
     });
     vi.mocked(apiClient).mockResolvedValueOnce(groups);
 

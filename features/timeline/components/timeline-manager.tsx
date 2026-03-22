@@ -258,6 +258,9 @@ export const TimelineManager = ({
                 <h3 className="font-display text-3xl text-[var(--color-ink)]">
                   {event.title}
                 </h3>
+                <p className="text-sm leading-6 text-[var(--color-ink)]">
+                  {event.description}
+                </p>
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {event.location}
                 </p>

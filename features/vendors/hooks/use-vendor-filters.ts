@@ -2,18 +2,18 @@
 
 import { useDeferredValue } from "react";
 
-import type { VendorCategoryType, VendorView } from "@/lib/planner-domain";
+import type { VendorView } from "@/lib/planner-domain";
 
 export const useVendorFilters = (
   vendors: VendorView[],
   search: string,
-  categoryType: "ALL" | VendorCategoryType,
+  categoryId: "ALL" | string,
 ): VendorView[] => {
   const deferredSearch = useDeferredValue(search);
   const query = deferredSearch.trim().toLowerCase();
 
   return vendors.filter((vendor) => {
-    if (categoryType !== "ALL" && vendor.categoryType !== categoryType) {
+    if (categoryId !== "ALL" && vendor.categoryId !== categoryId) {
       return false;
     }
 

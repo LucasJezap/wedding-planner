@@ -14,7 +14,6 @@ export const vendorInputSchema = z.object({
     "BOOKED",
     "REJECTED",
   ]),
-  owner: z.string().default(""),
   bookingDate: z.string().optional().default(""),
   followUpDate: z.string().optional().default(""),
   depositAmount: z.number().min(0).default(0),

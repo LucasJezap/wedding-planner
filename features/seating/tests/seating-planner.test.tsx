@@ -90,7 +90,7 @@ describe("SeatingPlanner", () => {
     );
 
     expect(screen.getByText("Podgląd wszystkich stołów")).toBeInTheDocument();
-    expect(screen.getAllByTitle("Emma Hart").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EH").length).toBeGreaterThan(0);
   });
 
   it("opens a seat editor overlay after chair click", async () => {

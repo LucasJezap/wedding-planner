@@ -9,10 +9,6 @@ describe("useTaskBuckets", () => {
     const tasks = seed.tasks.map((task) => ({
       ...task,
       notes: "",
-      checklistItems: seed.taskChecklistItems.filter(
-        (item) => item.taskId === task.id,
-      ),
-      blockedByTaskTitles: [],
     }));
     const { result } = renderHook(() => useTaskBuckets(tasks));
     expect(result.current.todo).toBe(1);

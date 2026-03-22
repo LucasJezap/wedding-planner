@@ -21,34 +21,94 @@ const LazyBarChart = dynamic(
         Bar,
         BarChart,
         CartesianGrid,
+        Cell,
+        Legend,
         ResponsiveContainer,
         Tooltip,
         XAxis,
+        YAxis,
       } = mod;
       const ChartWrapper = ({
         data,
-        dataKey,
-        barName,
+        paidName,
+        remainingName,
       }: {
-        data: Array<Record<string, unknown>>;
-        dataKey: string;
-        barName: string;
+        data: Array<{
+          name: string;
+          paidPortion: number;
+          remainingPortion: number;
+          paidLabel: string;
+          remainingLabel: string;
+          plannedLabel: string;
+          overBudgetLabel?: string;
+          paidColor: string;
+          remainingColor: string;
+        }>;
+        paidName: string;
+        remainingName: string;
       }) => (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <BarChart data={data} barGap={10}>
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
-              stroke="#f0d6c5"
+              stroke="#eadfd6"
             />
-            <XAxis dataKey="name" stroke="#74626a" />
-            <Tooltip />
+            <XAxis dataKey="name" stroke="#6c5d64" tickLine={false} />
+            <YAxis stroke="#8a7d82" tickLine={false} axisLine={false} />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) {
+                  return null;
+                }
+
+                const item = payload[0]?.payload as (typeof data)[number];
+                return (
+                  <div className="rounded-2xl border border-white/80 bg-white/95 px-4 py-3 shadow-[0_18px_40px_rgba(90,63,72,0.14)]">
+                    <p className="text-sm font-semibold text-[var(--color-ink)]">
+                      {label}
+                    </p>
+                    <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
+                      {item.plannedLabel}
+                    </p>
+                    <p className="text-sm text-[var(--color-ink)]">
+                      {item.paidLabel}
+                    </p>
+                    <p className="text-sm text-[var(--color-muted-copy)]">
+                      {item.remainingLabel}
+                    </p>
+                    {item.overBudgetLabel ? (
+                      <p className="text-sm text-[#9e4b3b]">
+                        {item.overBudgetLabel}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              }}
+            />
+            <Legend />
             <Bar
-              dataKey={dataKey}
-              name={barName}
-              fill="#e7c787"
+              dataKey="paidPortion"
+              name={paidName}
+              stackId="budget"
               radius={[10, 10, 0, 0]}
-            />
+            >
+              {data.map((entry) => (
+                <Cell key={`${entry.name}-paid`} fill={entry.paidColor} />
+              ))}
+            </Bar>
+            <Bar
+              dataKey="remainingPortion"
+              name={remainingName}
+              stackId="budget"
+            >
+              {data.map((entry) => (
+                <Cell
+                  key={`${entry.name}-remaining`}
+                  fill={entry.remainingColor}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       );
@@ -71,6 +131,28 @@ import { formatCurrency, formatDate, formatTime } from "@/lib/format";
 import type { DashboardData } from "@/lib/planner-domain";
 
 const DASHBOARD_LIST_LIMIT = 5;
+const hexToRgb = (hex: string) => {
+  const normalized = hex.replace("#", "");
+  const value =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized;
+  const parsed = Number.parseInt(value, 16);
+
+  return {
+    r: (parsed >> 16) & 255,
+    g: (parsed >> 8) & 255,
+    b: parsed & 255,
+  };
+};
+
+const withOpacity = (hex: string, opacity: number) => {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+};
 
 export const DashboardOverview = ({ data }: { data: DashboardData }) => {
   const { locale, messages } = useLocale();
@@ -84,20 +166,34 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
     useState<DashboardData["responsibilityOptions"][number]["id"]>("ALL");
   const chartData = data.categorySpend
     .slice()
-    .filter((category) =>
-      chartFilter === "planned"
-        ? category.planned > 0
-        : chartFilter === "paid"
-          ? category.actual > 0
-          : category.remaining > 0,
-    )
+    .filter((category) => category.planned > 0)
     .sort((left, right) =>
       chartFilter === "planned"
         ? right.planned - left.planned
         : chartFilter === "paid"
           ? right.actual - left.actual
           : right.remaining - left.remaining,
-    );
+    )
+    .map((category) => {
+      const paidPortion = Math.min(category.actual, category.planned);
+      const remainingPortion = Math.max(category.planned - paidPortion, 0);
+      const overBudget = Math.max(category.actual - category.planned, 0);
+
+      return {
+        name: category.name,
+        paidPortion,
+        remainingPortion,
+        paidLabel: `${messages.budget.paid}: ${formatCurrency(category.actual, locale)}`,
+        remainingLabel: `${messages.budget.remaining}: ${formatCurrency(category.remaining, locale)}`,
+        plannedLabel: `${messages.dashboard.planned}: ${formatCurrency(category.planned, locale)}`,
+        overBudgetLabel:
+          overBudget > 0
+            ? `${messages.dashboard.attention}: ${formatCurrency(overBudget, locale)}`
+            : undefined,
+        paidColor: category.color,
+        remainingColor: withOpacity(category.color, 0.28),
+      };
+    });
   const selectedResponsibility = data.responsibilityOptions.find(
     (option) => option.id === responsibilityFilter,
   );
@@ -106,15 +202,10 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
   ) =>
     option.type === "ALL"
       ? messages.dashboard.allResponsibilities
-      : option.type === "TASK_ASSIGNEE"
-        ? messages.enums.taskAssignee[option.value]
-        : option.label;
+      : messages.enums.taskAssignee[option.value];
   const matchesTaskFilter = (assignee: string) =>
     selectedResponsibility?.type !== "TASK_ASSIGNEE" ||
     selectedResponsibility.value === assignee;
-  const matchesVendorFilter = (owner: string) =>
-    selectedResponsibility?.type !== "VENDOR_OWNER" ||
-    selectedResponsibility.value === owner;
   const filteredUpcomingTasks = data.upcomingTasks.filter((task) =>
     matchesTaskFilter(task.assignee),
   );
@@ -124,37 +215,16 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
   const filteredOverdueTasks = data.overdueTasks.filter((task) =>
     matchesTaskFilter(task.assignee),
   );
-  const filteredVendorFollowUps = data.vendorFollowUps.filter((vendor) =>
-    matchesVendorFilter(vendor.owner),
-  );
-  const filteredVendorsMissingContact = data.vendorsMissingContact.filter(
-    (vendor) => matchesVendorFilter(vendor.owner),
-  );
+  const filteredVendorFollowUps = data.vendorFollowUps;
+  const filteredVendorsMissingContact = data.vendorsMissingContact;
   const filteredTodayTasks = data.todayFocus.tasks.filter((task) => {
     const source = data.upcomingTasks.find((item) => item.id === task.id);
     return source ? matchesTaskFilter(source.assignee) : true;
   });
-  const filteredTodayVendorFollowUps = data.todayFocus.vendorFollowUps.filter(
-    (vendor) => {
-      const source = data.vendorFollowUps.find((item) => item.id === vendor.id);
-      return source ? matchesVendorFilter(source.owner) : true;
-    },
-  );
-  const filteredActivityFeed = data.activityFeed.filter((item) => {
-    if (item.type === "TASK") {
-      return item.taskAssignee ? matchesTaskFilter(item.taskAssignee) : true;
-    }
-    if (item.type === "VENDOR") {
-      return item.vendorOwner ? matchesVendorFilter(item.vendorOwner) : true;
-    }
-    return selectedResponsibility?.type === "ALL";
-  });
+  const filteredTodayVendorFollowUps = data.todayFocus.vendorFollowUps;
   const filteredDecisionQueue = data.decisionQueue.filter((item) => {
     if (item.taskAssignee) {
       return matchesTaskFilter(item.taskAssignee);
-    }
-    if (item.vendorOwner) {
-      return matchesVendorFilter(item.vendorOwner);
     }
     return true;
   });
@@ -213,10 +283,6 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
     DASHBOARD_LIST_LIMIT,
   );
   const visibleDecisionQueue = filteredDecisionQueue.slice(
-    0,
-    DASHBOARD_LIST_LIMIT,
-  );
-  const visibleActivityFeed = filteredActivityFeed.slice(
     0,
     DASHBOARD_LIST_LIMIT,
   );
@@ -478,20 +544,8 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
             <CardContent className="h-[320px]">
               <LazyBarChart
                 data={chartData}
-                dataKey={
-                  chartFilter === "planned"
-                    ? "planned"
-                    : chartFilter === "paid"
-                      ? "actual"
-                      : "remaining"
-                }
-                barName={
-                  chartFilter === "planned"
-                    ? messages.dashboard.planned
-                    : chartFilter === "paid"
-                      ? messages.budget.paid
-                      : messages.budget.remaining
-                }
+                paidName={messages.budget.paid}
+                remainingName={messages.budget.remaining}
               />
             </CardContent>
           </Card>
@@ -742,13 +796,13 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               {visibleOverdueTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
+                  className="rounded-[1.5rem] border border-[#f2d2ca] bg-[linear-gradient(135deg,rgba(255,248,246,0.96),rgba(255,238,231,0.92))] p-4"
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="font-display text-2xl text-[var(--color-ink)]">
                       {task.title}
                     </h3>
-                    <span className="rounded-full bg-[#f3d4d4] px-3 py-1 text-xs uppercase tracking-[0.2em] text-[#9a3f3f]">
+                    <span className="shrink-0 rounded-full border border-[#d89181] bg-[#c95d42] px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
                       {messages.dashboard.overdue}
                     </span>
                   </div>
@@ -859,11 +913,6 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                     formatDate(vendor.followUpDate, locale),
                   )}
                 </p>
-                <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
-                  {messages.dashboard.ownerLabel(
-                    vendor.owner || messages.dashboard.unassignedOwner,
-                  )}
-                </p>
                 <div className="mt-4 flex justify-end">
                   <Link
                     href={`/vendors#vendor-${vendor.id}`}
@@ -902,11 +951,6 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
-                  {messages.dashboard.ownerLabel(
-                    vendor.owner || messages.dashboard.unassignedOwner,
-                  )}
-                </p>
-                <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
                   {messages.dashboard.missingContactLabel(
                     vendor.hasEmail,
                     vendor.hasPhone,
@@ -1070,43 +1114,6 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
           {visibleDecisionQueue.length === 0 ? (
             <p className="text-sm text-[var(--color-muted-copy)]">
               {messages.dashboard.noDecisionQueue}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
-      <Card className="border-white/70 bg-white/85 shadow-[0_18px_60px_rgba(160,96,120,0.12)]">
-        <CardHeader>
-          <CardTitle className="font-display text-3xl text-[var(--color-ink)]">
-            {messages.dashboard.activityFeed}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {visibleActivityFeed.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              className="block rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-display text-2xl text-[var(--color-ink)]">
-                  {item.title}
-                </h3>
-                <span className="rounded-full bg-white px-3 py-1 text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                  {messages.dashboard.activityTypes[item.type]}
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
-                {item.detail}
-              </p>
-              <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
-                {formatDate(item.updatedAt, locale)}{" "}
-                {formatTime(item.updatedAt, locale)}
-              </p>
-            </Link>
-          ))}
-          {visibleActivityFeed.length === 0 ? (
-            <p className="text-sm text-[var(--color-muted-copy)]">
-              {messages.dashboard.noActivityForResponsibility}
             </p>
           ) : null}
         </CardContent>

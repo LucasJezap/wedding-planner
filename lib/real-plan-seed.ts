@@ -812,6 +812,8 @@ const buildBudget = (expenses: ParsedExpense[]) => {
       weddingId,
       name: expense.name,
       plannedAmount: expense.max || expense.min,
+      estimateMin: expense.min,
+      estimateMax: expense.max || expense.min,
       color: categoryColors[index % categoryColors.length]!,
       notes: "",
       createdAt: now,

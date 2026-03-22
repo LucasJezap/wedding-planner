@@ -16,11 +16,10 @@ import type { VendorInput } from "@/features/vendors/types/vendor";
 import { canEditVendors } from "@/lib/access-control";
 import type {
   UserRole,
-  VendorCategoryType,
   VendorCategoryRecord,
   VendorView,
 } from "@/lib/planner-domain";
-import { VENDOR_CATEGORY_TYPES, VENDOR_STATUSES } from "@/lib/planner-domain";
+import { VENDOR_STATUSES } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
 import { formatCurrency, formatDate } from "@/lib/format";
 
@@ -40,11 +39,9 @@ export const VendorManager = ({
   const [vendors, setVendors] = useState(initialVendors);
   const [selectedVendor, setSelectedVendor] = useState<VendorView | null>(null);
   const [search, setSearch] = useState("");
-  const [categoryType, setCategoryType] = useState<"ALL" | VendorCategoryType>(
-    "ALL",
-  );
+  const [categoryId, setCategoryId] = useState<"ALL" | string>("ALL");
   const formRef = useRef<HTMLDivElement | null>(null);
-  const filteredVendors = useVendorFilters(vendors, search, categoryType);
+  const filteredVendors = useVendorFilters(vendors, search, categoryId);
   const {
     register,
     handleSubmit,
@@ -56,7 +53,6 @@ export const VendorManager = ({
       categoryId: categories[0]?.id ?? "",
       cost: 0,
       status: "RESEARCH",
-      owner: "",
       bookingDate: "",
       followUpDate: "",
       depositAmount: 0,
@@ -106,7 +102,6 @@ export const VendorManager = ({
         categoryId: categories[0]?.id ?? "",
         cost: 0,
         status: "RESEARCH",
-        owner: "",
         bookingDate: "",
         followUpDate: "",
         depositAmount: 0,
@@ -129,7 +124,6 @@ export const VendorManager = ({
       categoryId: vendor.categoryId,
       cost: vendor.cost,
       status: vendor.status,
-      owner: vendor.owner,
       bookingDate: vendor.bookingDate ? vendor.bookingDate.slice(0, 16) : "",
       followUpDate: vendor.followUpDate ? vendor.followUpDate.slice(0, 16) : "",
       depositAmount: vendor.depositAmount,
@@ -219,13 +213,6 @@ export const VendorManager = ({
                     ))}
                   </select>
                 </label>
-                <label className="space-y-1 text-sm text-[var(--color-ink)]">
-                  <span>{messages.vendors.owner}</span>
-                  <Input
-                    placeholder={messages.vendors.owner}
-                    {...register("owner")}
-                  />
-                </label>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-[var(--color-ink)]">
@@ -297,7 +284,7 @@ export const VendorManager = ({
                 />
               </label>
               <Button
-                className="rounded-full"
+                className="mt-3 rounded-full"
                 type="submit"
                 disabled={isSubmitting}
               >
@@ -318,16 +305,14 @@ export const VendorManager = ({
           />
           <select
             className="h-10 rounded-xl border px-3"
-            value={categoryType}
-            onChange={(event) =>
-              setCategoryType(event.target.value as "ALL" | VendorCategoryType)
-            }
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
             aria-label={messages.vendors.category}
           >
             <option value="ALL">{messages.dashboard.filters.all}</option>
-            {VENDOR_CATEGORY_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {messages.enums.vendorCategoryType[type]}
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
               </option>
             ))}
           </select>
@@ -363,11 +348,6 @@ export const VendorManager = ({
                   <span className="rounded-full bg-[var(--color-card-tint)] px-3 py-1 text-xs uppercase tracking-[0.2em] text-[var(--color-ink)]">
                     {messages.enums.vendorStatus[vendor.status]}
                   </span>
-                  {vendor.owner ? (
-                    <span className="rounded-full bg-white px-3 py-1 text-xs text-[var(--color-muted-copy)]">
-                      {vendor.owner}
-                    </span>
-                  ) : null}
                 </div>
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {vendor.contactEmail}

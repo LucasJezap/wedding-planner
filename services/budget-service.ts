@@ -28,7 +28,6 @@ export const getBudgetOverview = async (): Promise<{
     repository.listExpenses(),
     repository.listPayments(),
   ]);
-  const vendors = await repository.listVendors();
 
   const expenseViews: ExpenseView[] = expenses
     .map((expense) => {
@@ -39,15 +38,12 @@ export const getBudgetOverview = async (): Promise<{
       const category = categories.find(
         (candidate) => candidate.id === expense.categoryId,
       );
-      const vendor = vendors.find(
-        (candidate) => candidate.id === expense.vendorId,
-      );
 
       return {
         ...expense,
         categoryName: category?.name ?? "",
         categoryColor: category?.color ?? "#D89BAE",
-        vendorName: vendor?.name,
+        vendorName: undefined,
         paidAmount,
         remainingAmount: Math.max(expense.actualAmount - paidAmount, 0),
         isOverdue:
@@ -60,28 +56,25 @@ export const getBudgetOverview = async (): Promise<{
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 
   return {
-    categories: categories.map((category) => {
-      const categoryExpenses = expenseViews.filter(
-        (expense) => expense.categoryId === category.id,
-      );
-      const actualAmount = sum(
-        categoryExpenses.map((expense) => expense.actualAmount),
-      );
-      const paidAmount = sum(
-        categoryExpenses.map((expense) => expense.paidAmount),
-      );
-      const estimatedAmount = sum(
-        categoryExpenses.map((expense) => expense.estimateMax),
-      );
-
-      return {
-        ...category,
-        estimatedAmount,
-        actualAmount,
-        paidAmount,
-        remainingAmount: Math.max(category.plannedAmount - paidAmount, 0),
-      };
-    }),
+    categories: categories
+      .map((category) => {
+        const categoryExpenses = expenseViews.filter(
+          (expense) => expense.categoryId === category.id,
+        );
+        const actualAmount = sum(
+          categoryExpenses.map((expense) => expense.actualAmount),
+        );
+        const paidAmount = sum(
+          categoryExpenses.map((expense) => expense.paidAmount),
+        );
+        return {
+          ...category,
+          actualAmount,
+          paidAmount,
+          remainingAmount: Math.max(category.plannedAmount - paidAmount, 0),
+        };
+      })
+      .sort((left, right) => right.plannedAmount - left.plannedAmount),
     expenses: expenseViews,
     payments: payments.sort((left, right) =>
       right.paidAt.localeCompare(left.paidAt),
@@ -112,6 +105,8 @@ export const createBudgetCategory = async (
     weddingId: wedding.id,
     name: data.name,
     plannedAmount: data.plannedAmount,
+    estimateMin: data.estimateMin,
+    estimateMax: data.estimateMax,
     color: data.color,
     notes: data.notes,
   });
@@ -136,10 +131,10 @@ export const createExpense = async (
   const created = await repository.createExpense({
     weddingId: wedding.id,
     categoryId: data.categoryId,
-    vendorId: data.vendorId || undefined,
     name: data.name,
-    estimateMin: data.estimateMin,
-    estimateMax: data.estimateMax,
+    vendorId: undefined,
+    estimateMin: 0,
+    estimateMax: 0,
     actualAmount: data.actualAmount,
     dueDate: data.dueDate ? fromDateTimeLocalValue(data.dueDate) : undefined,
     notes: data.notes,
@@ -163,10 +158,7 @@ export const updateExpense = async (
 
   const data = expenseInputSchema.parse({
     categoryId: current.categoryId,
-    vendorId: current.vendorId ?? "",
     name: current.name,
-    estimateMin: current.estimateMin,
-    estimateMax: current.estimateMax,
     actualAmount: current.actualAmount,
     dueDate: current.dueDate ? current.dueDate.slice(0, 16) : "",
     notes: current.notes,
@@ -174,7 +166,12 @@ export const updateExpense = async (
   });
 
   const repository = getRepository();
-  await repository.updateExpense(expenseId, data);
+  await repository.updateExpense(expenseId, {
+    ...data,
+    vendorId: undefined,
+    estimateMin: current.estimateMin,
+    estimateMax: current.estimateMax,
+  });
   return (await getBudgetOverview()).expenses.find(
     (candidate) => candidate.id === expenseId,
   )!;

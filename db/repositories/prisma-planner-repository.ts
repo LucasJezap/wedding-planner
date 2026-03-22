@@ -330,6 +330,8 @@ const toBudgetCategoryRecord = (category: {
   weddingId: string;
   name: string;
   plannedAmount: { toNumber(): number };
+  estimateMin: { toNumber(): number };
+  estimateMax: { toNumber(): number };
   color: string;
   notes: string;
   createdAt: Date;
@@ -339,6 +341,8 @@ const toBudgetCategoryRecord = (category: {
   weddingId: category.weddingId,
   name: category.name,
   plannedAmount: category.plannedAmount.toNumber(),
+  estimateMin: category.estimateMin.toNumber(),
+  estimateMax: category.estimateMax.toNumber(),
   color: category.color,
   notes: category.notes,
   createdAt: category.createdAt.toISOString(),
@@ -1064,6 +1068,8 @@ export const prismaPlannerRepository: PlannerRepository = {
       data: {
         name: category.name,
         plannedAmount: category.plannedAmount,
+        estimateMin: category.estimateMin,
+        estimateMax: category.estimateMax,
         color: category.color,
         notes: category.notes,
       },
@@ -1078,6 +1084,8 @@ export const prismaPlannerRepository: PlannerRepository = {
           weddingId: category.weddingId,
           name: category.name,
           plannedAmount: category.plannedAmount,
+          estimateMin: category.estimateMin,
+          estimateMax: category.estimateMax,
           color: category.color,
           notes: category.notes,
         },

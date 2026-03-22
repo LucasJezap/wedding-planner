@@ -11,11 +11,6 @@ export const TASK_TEMPLATES = [
       priority: "HIGH",
       assignee: "COUPLE",
       tags: ["vendor", "follow-up"],
-      checklistItems: [
-        { title: "Review the latest offer", completed: false },
-        { title: "Send follow-up questions", completed: false },
-        { title: "Book a call or decision slot", completed: false },
-      ],
     },
   },
   {
@@ -28,11 +23,6 @@ export const TASK_TEMPLATES = [
       priority: "MEDIUM",
       assignee: "WITNESSES",
       tags: ["guests", "logistics"],
-      checklistItems: [
-        { title: "Check outstanding transport requests", completed: false },
-        { title: "Confirm accommodation list", completed: false },
-        { title: "Send final instructions to guests", completed: false },
-      ],
     },
   },
   {
@@ -45,25 +35,12 @@ export const TASK_TEMPLATES = [
       priority: "HIGH",
       assignee: "BRIDE",
       tags: ["timeline", "day-of"],
-      checklistItems: [
-        { title: "Confirm ceremony timing", completed: false },
-        { title: "Share latest schedule with vendors", completed: false },
-        { title: "Verify speech and music cues", completed: false },
-      ],
     },
   },
 ] satisfies Array<{
   id: string;
   label: string;
   values: Partial<
-    Pick<
-      TaskInput,
-      | "title"
-      | "description"
-      | "priority"
-      | "assignee"
-      | "tags"
-      | "checklistItems"
-    >
+    Pick<TaskInput, "title" | "description" | "priority" | "assignee" | "tags">
   >;
 }>;

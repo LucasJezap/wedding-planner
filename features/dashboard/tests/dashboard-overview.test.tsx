@@ -30,7 +30,6 @@ describe("DashboardOverview", () => {
     expect(
       screen.getByText("Najbliższe decyzje do podjęcia"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Ostatnie zmiany")).toBeInTheDocument();
     expect(screen.getByText("Wszystkie wydatki")).toBeInTheDocument();
     expect(screen.getByText("RSVP do domknięcia")).toBeInTheDocument();
     expect(screen.getByText("Goście bez stołu")).toBeInTheDocument();
@@ -71,18 +70,6 @@ describe("DashboardOverview", () => {
       screen.queryByText("Confirm final menu tasting"),
     ).not.toBeInTheDocument();
 
-    await user.selectOptions(
-      screen.getByLabelText("Filtr odpowiedzialności"),
-      "VENDOR:Lukasz",
-    );
-    expect(screen.getByDisplayValue("Lukasz")).toBeInTheDocument();
-    expect(screen.getByText("Rose Atelier")).toBeInTheDocument();
-    expect(screen.queryByText("Northlight Stories")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Wszyscy vendorzy maja juz uzupelnione dane kontaktowe.",
-      ),
-    ).toBeInTheDocument();
     expect(screen.getByText("Dodaj gościa")).toBeInTheDocument();
   }, 10000);
 

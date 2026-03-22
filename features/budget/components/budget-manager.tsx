@@ -1,13 +1,29 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldError } from "@/components/field-error";
 import { useLocale } from "@/components/locale-provider";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useBudgetTotals } from "@/features/budget/hooks/use-budget-totals";
+import {
+  budgetCategoryInputSchema,
+  expenseInputSchema,
+  paymentInputSchema,
+} from "@/features/budget/types/budget";
+import type {
+  BudgetCategoryInput,
+  ExpenseInput,
+  PaymentInput,
+} from "@/features/budget/types/budget";
+import { apiClient } from "@/lib/api-client";
+import { formatCurrency, formatDate } from "@/lib/format";
+import type { BudgetCategoryView, ExpenseView } from "@/lib/planner-domain";
 import { toast } from "@/lib/toast";
 
 const LazyPieChart = dynamic(
@@ -65,26 +81,6 @@ const LazyPieChart = dynamic(
     ),
   },
 );
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { useBudgetTotals } from "@/features/budget/hooks/use-budget-totals";
-import {
-  budgetCategoryInputSchema,
-  expenseInputSchema,
-  paymentInputSchema,
-} from "@/features/budget/types/budget";
-import type {
-  BudgetCategoryInput,
-  ExpenseInput,
-  PaymentInput,
-} from "@/features/budget/types/budget";
-import { apiClient } from "@/lib/api-client";
-import { formatCurrency, formatDate } from "@/lib/format";
-import type {
-  BudgetCategoryView,
-  ExpenseView,
-  VendorView,
-} from "@/lib/planner-domain";
 
 const categoryPalette = [
   "#D89BAE",
@@ -99,42 +95,22 @@ const categoryPalette = [
   "#B7C971",
   "#79B98E",
   "#58B2A5",
-  "#5FA5C4",
-  "#7393D6",
-  "#8E85D9",
-  "#AD7AD3",
-  "#C971B6",
-  "#D46D98",
-  "#B95D73",
-  "#C48761",
-  "#B69674",
-  "#8B9A63",
-  "#6FA075",
-  "#4D9A89",
-  "#4C8696",
-  "#6279A5",
-  "#8572B5",
-  "#9E6EAE",
-  "#B66B9D",
-  "#C56F82",
-  "#D28D74",
-  "#B8A56B",
-  "#8DA66A",
-  "#72A58F",
-  "#7E8FB4",
 ];
+
+const sortCategories = (items: BudgetCategoryView[]) =>
+  items.slice().sort((left, right) => right.plannedAmount - left.plannedAmount);
 
 export const BudgetManager = ({
   initialCategories,
   initialExpenses,
-  vendors,
 }: {
   initialCategories: BudgetCategoryView[];
   initialExpenses: ExpenseView[];
-  vendors: VendorView[];
 }) => {
   const { locale, messages } = useLocale();
-  const [categories, setCategories] = useState(initialCategories);
+  const [categories, setCategories] = useState(
+    sortCategories(initialCategories),
+  );
   const [expenses, setExpenses] = useState(initialExpenses);
   const [selectedCategory, setSelectedCategory] =
     useState<BudgetCategoryView | null>(null);
@@ -143,6 +119,10 @@ export const BudgetManager = ({
   );
   const [selectedCategoryColor, setSelectedCategoryColor] = useState(
     categoryPalette[0],
+  );
+  const [showCategoryColors, setShowCategoryColors] = useState(false);
+  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(
+    null,
   );
   const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(
     null,
@@ -160,7 +140,7 @@ export const BudgetManager = ({
         categories: BudgetCategoryView[];
         expenses: ExpenseView[];
       }>("/api/budget");
-      setCategories(refreshed.categories);
+      setCategories(sortCategories(refreshed.categories));
       setExpenses(refreshed.expenses);
     } catch {
       toast.error(messages.common.actionError);
@@ -177,11 +157,14 @@ export const BudgetManager = ({
     defaultValues: {
       name: "",
       plannedAmount: 0,
+      estimateMin: 0,
+      estimateMax: 0,
       color: categoryPalette[0],
       notes: "",
     },
     resolver: zodResolver(budgetCategoryInputSchema) as never,
   });
+
   const {
     register: registerExpense,
     handleSubmit: handleExpenseSubmit,
@@ -190,21 +173,19 @@ export const BudgetManager = ({
   } = useForm<ExpenseInput>({
     defaultValues: {
       categoryId: initialCategories[0]?.id ?? "",
-      vendorId: "",
       name: "",
-      estimateMin: 0,
-      estimateMax: 0,
       actualAmount: 0,
       dueDate: "",
       notes: "",
     },
     resolver: zodResolver(expenseInputSchema) as never,
   });
+
   const {
     register: registerPayment,
     handleSubmit: handlePaymentSubmit,
     reset: resetPayment,
-    formState: { errors: paymentErrors, isSubmitting: isPaymentSubmitting },
+    formState: { isSubmitting: isPaymentSubmitting },
   } = useForm<PaymentInput>({
     defaultValues: {
       expenseId: "",
@@ -221,6 +202,8 @@ export const BudgetManager = ({
     resetCategory({
       name: "",
       plannedAmount: 0,
+      estimateMin: 0,
+      estimateMax: 0,
       color: categoryPalette[0],
       notes: "",
     });
@@ -230,10 +213,7 @@ export const BudgetManager = ({
     setSelectedExpense(null);
     resetExpense({
       categoryId: categories[0]?.id ?? "",
-      vendorId: "",
       name: "",
-      estimateMin: 0,
-      estimateMax: 0,
       actualAmount: 0,
       dueDate: "",
       notes: "",
@@ -242,13 +222,15 @@ export const BudgetManager = ({
 
   const handleEditCategory = (category: BudgetCategoryView) => {
     setSelectedCategory(category);
+    setSelectedCategoryColor(category.color);
     resetCategory({
       name: category.name,
       plannedAmount: category.plannedAmount,
+      estimateMin: category.estimateMin,
+      estimateMax: category.estimateMax,
       color: category.color,
       notes: category.notes,
     });
-    setSelectedCategoryColor(category.color);
     categoryFormRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "start",
@@ -259,10 +241,7 @@ export const BudgetManager = ({
     setSelectedExpense(expense);
     resetExpense({
       categoryId: expense.categoryId,
-      vendorId: expense.vendorId ?? "",
       name: expense.name,
-      estimateMin: expense.estimateMin,
-      estimateMax: expense.estimateMax,
       actualAmount: expense.actualAmount,
       dueDate: expense.dueDate ? expense.dueDate.slice(0, 16) : "",
       notes: expense.notes,
@@ -272,6 +251,23 @@ export const BudgetManager = ({
       block: "start",
     });
   };
+
+  const expensesByCategory = useMemo(
+    () =>
+      Object.fromEntries(
+        categories.map((category) => [
+          category.id,
+          expenses
+            .filter((expense) => expense.categoryId === category.id)
+            .sort((left, right) => {
+              const leftDate = left.dueDate ?? left.createdAt;
+              const rightDate = right.dueDate ?? right.createdAt;
+              return leftDate.localeCompare(rightDate);
+            }),
+        ]),
+      ) as Record<string, ExpenseView[]>,
+    [categories, expenses],
+  );
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
@@ -336,6 +332,8 @@ export const BudgetManager = ({
                       body: JSON.stringify({
                         ...values,
                         plannedAmount: Number(values.plannedAmount),
+                        estimateMin: Number(values.estimateMin),
+                        estimateMax: Number(values.estimateMax),
                         categoryId: selectedCategory?.id,
                       }),
                     },
@@ -355,68 +353,108 @@ export const BudgetManager = ({
                 />
                 <FieldError error={categoryErrors.name} />
               </label>
-              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
-                <span>{messages.budget.planAmount}</span>
-                <Input
-                  type="number"
-                  step="1"
-                  {...registerCategory("plannedAmount", {
-                    valueAsNumber: true,
-                  })}
-                />
-              </label>
-              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
-                <span>{messages.budget.categoryColor}</span>
-                <div className="space-y-3 rounded-[1.25rem] border border-[var(--color-card-tint)]/80 p-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      aria-label={messages.budget.categoryColor}
-                      className="h-11 w-16 cursor-pointer rounded-lg border border-[var(--color-card-tint)] bg-white p-1"
-                      value={selectedCategoryColor}
-                      onChange={(event) => {
-                        setSelectedCategoryColor(event.target.value);
-                        setCategoryValue("color", event.target.value, {
-                          shouldDirty: true,
-                        });
-                      }}
-                    />
-                    <Input
-                      {...registerCategory("color")}
-                      className="font-mono"
-                      value={selectedCategoryColor}
-                      onChange={(event) => {
-                        setSelectedCategoryColor(event.target.value);
-                        setCategoryValue("color", event.target.value, {
-                          shouldDirty: true,
-                        });
-                      }}
-                    />
-                  </div>
-                  <div className="grid grid-cols-6 gap-2">
-                    {categoryPalette.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        title={color}
-                        aria-label={`${messages.budget.categoryColor}: ${color}`}
-                        className={`h-9 rounded-xl border transition-transform hover:scale-[1.04] ${
-                          selectedCategoryColor === color
-                            ? "border-[var(--color-ink)] ring-2 ring-[var(--color-card-tint)]"
-                            : "border-white/80"
-                        }`}
-                        style={{ backgroundColor: color }}
-                        onClick={() => {
-                          setSelectedCategoryColor(color);
-                          setCategoryValue("color", color, {
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                  <span>{messages.budget.planAmount}</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    {...registerCategory("plannedAmount", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                </label>
+                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                  <span>{messages.budget.estimateMin}</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    {...registerCategory("estimateMin", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                </label>
+                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                  <span>{messages.budget.estimateMax}</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    {...registerCategory("estimateMax", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  <FieldError error={categoryErrors.estimateMax} />
+                </label>
+              </div>
+              <div className="rounded-[1.25rem] border border-[var(--color-card-tint)]/80 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-[var(--color-ink)]">
+                    {messages.budget.categoryColor}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCategoryColors((current) => !current)}
+                  >
+                    {showCategoryColors
+                      ? messages.budget.hideColors
+                      : messages.budget.showColors}
+                  </Button>
+                </div>
+                {showCategoryColors ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        aria-label={messages.budget.categoryColor}
+                        className="h-11 w-16 cursor-pointer rounded-lg border border-[var(--color-card-tint)] bg-white p-1"
+                        value={selectedCategoryColor}
+                        onChange={(event) => {
+                          setSelectedCategoryColor(event.target.value);
+                          setCategoryValue("color", event.target.value, {
                             shouldDirty: true,
                           });
                         }}
                       />
-                    ))}
+                      <Input
+                        {...registerCategory("color")}
+                        className="font-mono"
+                        value={selectedCategoryColor}
+                        onChange={(event) => {
+                          setSelectedCategoryColor(event.target.value);
+                          setCategoryValue("color", event.target.value, {
+                            shouldDirty: true,
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-6 gap-2">
+                      {categoryPalette.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={`h-9 rounded-xl border ${
+                            selectedCategoryColor === color
+                              ? "border-[var(--color-ink)] ring-2 ring-[var(--color-card-tint)]"
+                              : "border-white/80"
+                          }`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => {
+                            setSelectedCategoryColor(color);
+                            setCategoryValue("color", color, {
+                              shouldDirty: true,
+                            });
+                          }}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </label>
+                ) : (
+                  <p className="mt-4 text-sm text-[var(--color-muted-copy)]">
+                    {selectedCategoryColor}
+                  </p>
+                )}
+              </div>
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.categoryNotes}</span>
                 <Input {...registerCategory("notes")} />
@@ -486,7 +524,7 @@ export const BudgetManager = ({
               className="space-y-3"
               onSubmit={handleExpenseSubmit(async (values) => {
                 try {
-                  await apiClient<ExpenseView>(
+                  const savedExpense = await apiClient<ExpenseView>(
                     selectedExpense
                       ? `/api/budget/expenses/${selectedExpense.id}`
                       : "/api/budget",
@@ -494,12 +532,20 @@ export const BudgetManager = ({
                       method: selectedExpense ? "PATCH" : "POST",
                       body: JSON.stringify({
                         ...values,
-                        estimateMin: Number(values.estimateMin),
-                        estimateMax: Number(values.estimateMax),
                         actualAmount: Number(values.actualAmount),
                       }),
                     },
                   );
+
+                  setExpenses((current) =>
+                    [
+                      savedExpense,
+                      ...current.filter((item) => item.id !== savedExpense.id),
+                    ].sort((left, right) =>
+                      right.createdAt.localeCompare(left.createdAt),
+                    ),
+                  );
+                  setExpandedCategoryId(savedExpense.categoryId);
                   await refreshBudget();
                   resetExpenseForm();
                 } catch {
@@ -524,20 +570,6 @@ export const BudgetManager = ({
                 </select>
               </label>
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
-                <span>{messages.budget.expenseVendor}</span>
-                <select
-                  className="h-10 w-full rounded-xl border px-3"
-                  {...registerExpense("vendorId")}
-                >
-                  <option value="">{messages.budget.noVendor}</option>
-                  {vendors.map((vendor) => (
-                    <option key={vendor.id} value={vendor.id}>
-                      {vendor.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.expenseName}</span>
                 <Input
                   aria-invalid={!!expenseErrors.name}
@@ -545,23 +577,7 @@ export const BudgetManager = ({
                 />
                 <FieldError error={expenseErrors.name} />
               </label>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
-                  <span>{messages.budget.estimateMin}</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    {...registerExpense("estimateMin", { valueAsNumber: true })}
-                  />
-                </label>
-                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
-                  <span>{messages.budget.estimateMax}</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    {...registerExpense("estimateMax", { valueAsNumber: true })}
-                  />
-                </label>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                   <span>{messages.budget.actualAmount}</span>
                   <Input
@@ -572,11 +588,14 @@ export const BudgetManager = ({
                     })}
                   />
                 </label>
+                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                  <span>{messages.budget.expenseDueDate}</span>
+                  <Input
+                    type="datetime-local"
+                    {...registerExpense("dueDate")}
+                  />
+                </label>
               </div>
-              <label className="block space-y-2 text-sm text-[var(--color-ink)]">
-                <span>{messages.budget.expenseDueDate}</span>
-                <Input type="datetime-local" {...registerExpense("dueDate")} />
-              </label>
               <label className="block space-y-2 text-sm text-[var(--color-ink)]">
                 <span>{messages.budget.expenseNotes}</span>
                 <Input {...registerExpense("notes")} />
@@ -643,39 +662,6 @@ export const BudgetManager = ({
               fallbackLabel={messages.budget.categoryName}
             />
           </CardContent>
-          <CardContent className="pt-0">
-            <details className="rounded-[1.25rem] border border-[var(--color-card-tint)]/70 bg-[var(--color-card-tint)]/20 px-4 py-3">
-              <summary className="cursor-pointer list-none text-sm font-medium text-[var(--color-ink)]">
-                Legenda kategorii
-              </summary>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {categories.map((category) => (
-                  <div
-                    key={category.id}
-                    title={`${category.name} • ${messages.budget.plan}: ${formatCurrency(
-                      category.plannedAmount,
-                      locale,
-                    )} • ${messages.budget.paid}: ${formatCurrency(
-                      category.paidAmount,
-                      locale,
-                    )}${category.notes ? ` • ${category.notes}` : ""}`}
-                    className="flex items-center justify-between rounded-[1rem] border border-[var(--color-card-tint)]/70 bg-[var(--color-card-tint)]/30 px-3 py-2 text-sm text-[var(--color-ink)]"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-3.5 w-3.5 rounded-full"
-                        style={{ backgroundColor: category.color }}
-                      />
-                      <span>{category.name}</span>
-                    </div>
-                    <span className="text-xs text-[var(--color-muted-copy)]">
-                      {formatCurrency(category[categoryChartMetric], locale)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </details>
-          </CardContent>
         </Card>
 
         {categories.length === 0 ? (
@@ -684,297 +670,276 @@ export const BudgetManager = ({
           </p>
         ) : null}
         <div className="grid gap-4">
-          {categories.map((category) => (
-            <Card
-              key={category.id}
-              id={`budget-category-${category.id}`}
-              className="scroll-mt-40 border-white/70 bg-white/85"
-            >
-              <CardContent className="flex flex-col gap-4 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="h-4 w-4 rounded-full"
-                        style={{ backgroundColor: category.color }}
-                      />
-                      <h3 className="font-display text-3xl text-[var(--color-ink)]">
-                        {category.name}
-                      </h3>
-                    </div>
-                    {category.notes ? (
-                      <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
-                        {category.notes}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleEditCategory(category)}
-                    >
-                      {messages.guests.editButton}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        if (!window.confirm(messages.common.confirmDelete)) {
-                          return;
-                        }
-                        try {
-                          await apiClient<{ categoryId: string }>(
-                            `/api/budget/categories/${category.id}`,
-                            {
-                              method: "DELETE",
-                            },
-                          );
-                          await refreshBudget();
-                          if (selectedCategory?.id === category.id) {
-                            resetCategoryForm();
-                          }
-                        } catch {
-                          toast.error(messages.common.actionError);
-                        }
-                      }}
-                    >
-                      {messages.guests.delete}
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                      {messages.budget.plan}
-                    </p>
-                    <p className="mt-2 text-lg text-[var(--color-ink)]">
-                      {formatCurrency(category.plannedAmount, locale)}
-                    </p>
-                  </div>
-                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                      {messages.budget.paid}
-                    </p>
-                    <p className="mt-2 text-lg text-[var(--color-ink)]">
-                      {formatCurrency(category.paidAmount, locale)}
-                    </p>
-                  </div>
-                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                      {messages.budget.remaining}
-                    </p>
-                    <p className="mt-2 text-lg text-[var(--color-ink)]">
-                      {formatCurrency(category.remainingAmount, locale)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          {categories.map((category) => {
+            const categoryExpenses = expensesByCategory[category.id] ?? [];
+            const expanded = expandedCategoryId === category.id;
 
-        {expenses.length === 0 ? (
-          <p className="py-8 text-center text-sm text-[var(--color-muted-copy)]">
-            {messages.budget.emptyExpenses}
-          </p>
-        ) : null}
-        <div className="grid gap-4">
-          {expenses.map((expense) => (
-            <Card
-              key={expense.id}
-              id={`expense-${expense.id}`}
-              className="scroll-mt-40 border-white/70 bg-white/85"
-            >
-              <CardContent className="space-y-4 p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="h-4 w-4 rounded-full"
-                        style={{ backgroundColor: expense.categoryColor }}
-                      />
-                      <h3 className="font-display text-3xl text-[var(--color-ink)]">
-                        {expense.name}
-                      </h3>
+            return (
+              <Card
+                key={category.id}
+                id={`budget-category-${category.id}`}
+                className="scroll-mt-40 border-white/70 bg-white/85"
+              >
+                <CardContent className="flex flex-col gap-4 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="h-4 w-4 rounded-full"
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <h3 className="font-display text-3xl text-[var(--color-ink)]">
+                          {category.name}
+                        </h3>
+                      </div>
+                      {category.notes ? (
+                        <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
+                          {category.notes}
+                        </p>
+                      ) : null}
                     </div>
-                    <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
-                      {expense.categoryName}
-                    </p>
-                    {expense.vendorName ? (
-                      <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
-                        {messages.budget.vendorLabel(expense.vendorName)}
-                      </p>
-                    ) : null}
-                    {expense.dueDate ? (
-                      <p
-                        className={`mt-2 text-sm ${
-                          expense.isOverdue
-                            ? "text-red-600"
-                            : "text-[var(--color-muted-copy)]"
-                        }`}
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => handleEditCategory(category)}
                       >
-                        {messages.budget.dueDateLabel(
-                          formatDate(expense.dueDate, locale),
-                        )}
+                        {messages.guests.editButton}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          if (!window.confirm(messages.common.confirmDelete)) {
+                            return;
+                          }
+                          try {
+                            await apiClient<{ categoryId: string }>(
+                              `/api/budget/categories/${category.id}`,
+                              {
+                                method: "DELETE",
+                              },
+                            );
+                            await refreshBudget();
+                            if (selectedCategory?.id === category.id) {
+                              resetCategoryForm();
+                            }
+                          } catch {
+                            toast.error(messages.common.actionError);
+                          }
+                        }}
+                      >
+                        {messages.guests.delete}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                        {messages.budget.plan}
                       </p>
-                    ) : null}
-                    {expense.notes ? (
-                      <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
-                        {expense.notes}
+                      <p className="mt-2 text-lg text-[var(--color-ink)]">
+                        {formatCurrency(category.plannedAmount, locale)}
                       </p>
-                    ) : null}
+                    </div>
+                    <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                        {messages.budget.estimateMin}
+                      </p>
+                      <p className="mt-2 text-lg text-[var(--color-ink)]">
+                        {formatCurrency(category.estimateMin, locale)}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                        {messages.budget.estimateMax}
+                      </p>
+                      <p className="mt-2 text-lg text-[var(--color-ink)]">
+                        {formatCurrency(category.estimateMax, locale)}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                        {messages.budget.paid}
+                      </p>
+                      <p className="mt-2 text-lg text-[var(--color-ink)]">
+                        {formatCurrency(category.paidAmount, locale)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleEditExpense(expense)}
-                    >
-                      {messages.guests.editButton}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        if (!window.confirm(messages.common.confirmDelete)) {
-                          return;
-                        }
-                        try {
-                          await apiClient<{ expenseId: string }>(
-                            `/api/budget/expenses/${expense.id}`,
-                            {
-                              method: "DELETE",
-                            },
-                          );
-                          await refreshBudget();
-                        } catch {
-                          toast.error(messages.common.actionError);
-                        }
-                      }}
-                    >
-                      {messages.guests.delete}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                      {messages.budget.plan}
-                    </p>
-                    <p className="mt-2 text-lg text-[var(--color-ink)]">
-                      {formatCurrency(expense.actualAmount, locale)}
-                    </p>
-                  </div>
-                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                      {messages.budget.paid}
-                    </p>
-                    <p className="mt-2 text-lg text-[var(--color-ink)]">
-                      {formatCurrency(expense.paidAmount, locale)}
-                    </p>
-                  </div>
-                  <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                      {messages.budget.remaining}
-                    </p>
-                    <p className="mt-2 text-lg text-[var(--color-ink)]">
-                      {formatCurrency(expense.remainingAmount, locale)}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-sm text-[var(--color-muted-copy)]">
-                  {messages.budget.rangeLabel(
-                    formatCurrency(expense.estimateMin, locale),
-                    formatCurrency(expense.estimateMax, locale),
-                  )}
-                </p>
-
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setExpandedExpenseId((current) =>
-                      current === expense.id ? null : expense.id,
-                    )
-                  }
-                >
-                  {messages.budget.showMore}
-                </Button>
-
-                {expandedExpenseId === expense.id ? (
-                  <div className="space-y-4 rounded-[1.5rem] bg-[var(--color-card-tint)]/35 p-4">
-                    <div className="space-y-2">
-                      {expense.payments.map((payment) => (
+                  <Button
+                    variant="outline"
+                    className="w-fit"
+                    onClick={() =>
+                      setExpandedCategoryId((current) =>
+                        current === category.id ? null : category.id,
+                      )
+                    }
+                  >
+                    {expanded
+                      ? messages.guests.cancel
+                      : messages.budget.showMore}
+                  </Button>
+                  {expanded ? (
+                    <div className="space-y-3 rounded-[1.5rem] bg-[var(--color-card-tint)]/30 p-4">
+                      {categoryExpenses.length === 0 ? (
+                        <p className="text-sm text-[var(--color-muted-copy)]">
+                          {messages.budget.emptyExpenses}
+                        </p>
+                      ) : null}
+                      {categoryExpenses.map((expense) => (
                         <div
-                          key={payment.id}
-                          className="rounded-[1.25rem] border border-white/70 bg-white/80 p-3"
+                          key={expense.id}
+                          className="rounded-[1.25rem] border border-white/70 bg-white/80 p-4"
                         >
-                          <p className="text-sm font-medium text-[var(--color-ink)]">
-                            {formatCurrency(payment.amount, locale)}
-                          </p>
-                          <p className="text-xs text-[var(--color-muted-copy)]">
-                            {new Date(payment.paidAt).toLocaleString(locale)}
-                          </p>
-                          {payment.notes ? (
-                            <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
-                              {payment.notes}
-                            </p>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-medium text-[var(--color-ink)]">
+                                {expense.name}
+                              </p>
+                              <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
+                                {formatCurrency(expense.actualAmount, locale)}
+                              </p>
+                              <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
+                                {expense.dueDate
+                                  ? formatDate(expense.dueDate, locale)
+                                  : formatDate(expense.createdAt, locale)}
+                              </p>
+                              {expense.notes ? (
+                                <p className="mt-2 text-sm text-[var(--color-muted-copy)]">
+                                  {expense.notes}
+                                </p>
+                              ) : null}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => handleEditExpense(expense)}
+                              >
+                                {messages.guests.editButton}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={async () => {
+                                  if (
+                                    !window.confirm(
+                                      messages.common.confirmDelete,
+                                    )
+                                  ) {
+                                    return;
+                                  }
+                                  try {
+                                    await apiClient<{ expenseId: string }>(
+                                      `/api/budget/expenses/${expense.id}`,
+                                      {
+                                        method: "DELETE",
+                                      },
+                                    );
+                                    await refreshBudget();
+                                  } catch {
+                                    toast.error(messages.common.actionError);
+                                  }
+                                }}
+                              >
+                                {messages.guests.delete}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() =>
+                                  setExpandedExpenseId((current) =>
+                                    current === expense.id ? null : expense.id,
+                                  )
+                                }
+                              >
+                                {messages.budget.showMore}
+                              </Button>
+                            </div>
+                          </div>
+                          {expandedExpenseId === expense.id ? (
+                            <div className="mt-4 space-y-4 rounded-[1rem] bg-[var(--color-card-tint)]/25 p-4">
+                              <div className="space-y-2">
+                                {expense.payments.map((payment) => (
+                                  <div
+                                    key={payment.id}
+                                    className="rounded-[1rem] border border-white/70 bg-white/80 p-3"
+                                  >
+                                    <p className="text-sm font-medium text-[var(--color-ink)]">
+                                      {formatCurrency(payment.amount, locale)}
+                                    </p>
+                                    <p className="text-xs text-[var(--color-muted-copy)]">
+                                      {formatDate(payment.paidAt, locale)}
+                                    </p>
+                                    {payment.notes ? (
+                                      <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
+                                        {payment.notes}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
+                              <form
+                                className="grid gap-3 sm:grid-cols-[1fr_1fr_1.2fr_auto]"
+                                onSubmit={handlePaymentSubmit(
+                                  async (values) => {
+                                    try {
+                                      await apiClient<ExpenseView>(
+                                        `/api/budget/expenses/${expense.id}/payments`,
+                                        {
+                                          method: "POST",
+                                          body: JSON.stringify({
+                                            amount: Number(values.amount),
+                                            paidAt: values.paidAt,
+                                            notes: values.notes,
+                                          }),
+                                        },
+                                      );
+                                      await refreshBudget();
+                                      resetPayment({
+                                        expenseId: expense.id,
+                                        amount: 0,
+                                        paidAt: new Date()
+                                          .toISOString()
+                                          .slice(0, 16),
+                                        notes: "",
+                                      });
+                                    } catch {
+                                      toast.error(messages.common.actionError);
+                                    }
+                                  },
+                                )}
+                              >
+                                <Input
+                                  type="number"
+                                  step="1"
+                                  placeholder={messages.budget.paymentAmount}
+                                  {...registerPayment("amount", {
+                                    valueAsNumber: true,
+                                  })}
+                                />
+                                <Input
+                                  type="datetime-local"
+                                  {...registerPayment("paidAt")}
+                                />
+                                <Input
+                                  placeholder={messages.budget.paymentNotes}
+                                  {...registerPayment("notes")}
+                                />
+                                <Button
+                                  className="rounded-full"
+                                  type="submit"
+                                  disabled={isPaymentSubmitting}
+                                >
+                                  {messages.budget.addPayment}
+                                </Button>
+                              </form>
+                            </div>
                           ) : null}
                         </div>
                       ))}
                     </div>
-                    <form
-                      className="grid gap-3 sm:grid-cols-[1fr_1fr_1.2fr_auto]"
-                      onSubmit={handlePaymentSubmit(async (values) => {
-                        try {
-                          await apiClient<ExpenseView>(
-                            `/api/budget/expenses/${expense.id}/payments`,
-                            {
-                              method: "POST",
-                              body: JSON.stringify({
-                                amount: Number(values.amount),
-                                paidAt: values.paidAt,
-                                notes: values.notes,
-                              }),
-                            },
-                          );
-                          await refreshBudget();
-                          resetPayment({
-                            expenseId: expense.id,
-                            amount: 0,
-                            paidAt: new Date().toISOString().slice(0, 16),
-                            notes: "",
-                          });
-                        } catch {
-                          toast.error(messages.common.actionError);
-                        }
-                      })}
-                    >
-                      <Input
-                        type="number"
-                        step="1"
-                        placeholder={messages.budget.paymentAmount}
-                        {...registerPayment("amount", { valueAsNumber: true })}
-                      />
-                      <Input
-                        type="datetime-local"
-                        {...registerPayment("paidAt")}
-                      />
-                      <Input
-                        placeholder={messages.budget.paymentNotes}
-                        {...registerPayment("notes")}
-                      />
-                      <Button
-                        className="rounded-full"
-                        type="submit"
-                        disabled={isPaymentSubmitting}
-                      >
-                        {messages.budget.addPayment}
-                      </Button>
-                    </form>
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          ))}
+                  ) : null}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
     </div>

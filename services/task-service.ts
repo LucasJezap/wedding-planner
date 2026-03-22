@@ -6,10 +6,9 @@ import { isWitnessScopedTaskViewer } from "@/lib/access-control";
 
 const buildTasks = async (): Promise<TaskView[]> => {
   const repository = getRepository();
-  const [tasks, notes, checklistItems] = await Promise.all([
+  const [tasks, notes] = await Promise.all([
     repository.listTasks(),
     repository.listNotes(),
-    repository.listTaskChecklistItems(),
   ]);
 
   return tasks
@@ -17,15 +16,6 @@ const buildTasks = async (): Promise<TaskView[]> => {
       ...task,
       notes:
         notes.find((candidate) => candidate.taskId === task.id)?.content ?? "",
-      checklistItems: checklistItems
-        .filter((candidate) => candidate.taskId === task.id)
-        .sort((left, right) => left.sortOrder - right.sortOrder),
-      blockedByTaskTitles: task.blockedByTaskIds
-        .map(
-          (blockedTaskId) =>
-            tasks.find((candidate) => candidate.id === blockedTaskId)?.title,
-        )
-        .filter((title): title is string => Boolean(title)),
     }))
     .sort((left, right) => {
       const statusOrder = { TODO: 0, IN_PROGRESS: 1, DONE: 2 } as const;
@@ -68,10 +58,6 @@ export const createTask = async (
   const assignee = isWitnessScopedTaskViewer(options?.viewerRole)
     ? "WITNESSES"
     : data.assignee;
-  const allTasks = await repository.listTasks();
-  const normalizedBlockedByTaskIds = data.blockedByTaskIds.filter(
-    (blockedTaskId) => allTasks.some((task) => task.id === blockedTaskId),
-  );
 
   const task = await repository.createTask(
     {
@@ -83,18 +69,13 @@ export const createTask = async (
       status: data.status,
       assignee,
       tags: data.tags,
-      blockedByTaskIds: normalizedBlockedByTaskIds,
+      blockedByTaskIds: [],
     },
     {
       weddingId: wedding.id,
       content: data.notes,
     },
-    data.checklistItems.map((item) => ({
-      weddingId: wedding.id,
-      title: item.title,
-      completed: item.completed,
-      sortOrder: 0,
-    })),
+    [],
   );
 
   return (await buildTasks()).find((candidate) => candidate.id === task.id)!;
@@ -117,12 +98,6 @@ export const updateTask = async (
   });
 
   const repository = getRepository();
-  const allTasks = await repository.listTasks();
-  const normalizedBlockedByTaskIds = data.blockedByTaskIds.filter(
-    (blockedTaskId) =>
-      blockedTaskId !== taskId &&
-      allTasks.some((task) => task.id === blockedTaskId),
-  );
   await repository.updateTask(
     taskId,
     {
@@ -133,17 +108,12 @@ export const updateTask = async (
       status: data.status,
       assignee: data.assignee,
       tags: data.tags,
-      blockedByTaskIds: normalizedBlockedByTaskIds,
+      blockedByTaskIds: [],
     },
     {
       content: data.notes,
     },
-    data.checklistItems.map((item) => ({
-      weddingId: current.weddingId,
-      title: item.title,
-      completed: item.completed,
-      sortOrder: 0,
-    })),
+    [],
   );
 
   return (await buildTasks()).find((candidate) => candidate.id === taskId)!;

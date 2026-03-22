@@ -18,11 +18,12 @@ describe("budget-service", () => {
   it("updates categories and expenses", async () => {
     const budget = await getBudgetOverview();
     const category = budget.categories[0]!;
-    const firstVendor = (await getBudgetOverview()).expenses[0]?.vendorId;
 
     const createdCategory = await createBudgetCategory({
       name: "Stationery",
       plannedAmount: 1500,
+      estimateMin: 1200,
+      estimateMax: 1800,
       color: "#8EA6D1",
       notes: "Invites and paper goods",
     });
@@ -31,6 +32,8 @@ describe("budget-service", () => {
     const updatedCategory = await updateBudgetCategory(category.id, {
       name: category.name,
       plannedAmount: category.plannedAmount + 1000,
+      estimateMin: category.estimateMin + 200,
+      estimateMax: category.estimateMax + 300,
       color: category.color,
       notes: category.notes,
     });
@@ -38,10 +41,7 @@ describe("budget-service", () => {
 
     const createdExpense = await createExpense({
       categoryId: category.id,
-      vendorId: firstVendor ?? "",
       name: "Extra lighting",
-      estimateMin: 500,
-      estimateMax: 700,
       actualAmount: 600,
       dueDate: "2026-06-10T12:00",
       notes: "Deposit",
@@ -90,8 +90,6 @@ describe("budget-service", () => {
     const createdExpense = await createExpense({
       categoryId: category.id,
       name: "Overpaid vendor",
-      estimateMin: 100,
-      estimateMax: 100,
       actualAmount: 100,
       notes: "",
     });

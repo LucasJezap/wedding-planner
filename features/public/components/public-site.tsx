@@ -100,19 +100,11 @@ const isRateLimitError = (message: string) => {
   return normalized.includes("limit") || normalized.includes("too many");
 };
 
-const floralPalette = [
-  { name: "fuchsia", className: "bg-[#e93cac]" },
-  { name: "orange", className: "bg-[#ff7a21]" },
-  { name: "yellow", className: "bg-[#f7c929]" },
-  { name: "cobalt", className: "bg-[#3148d8]" },
-  { name: "leaf", className: "bg-[#4c9a32]" },
-];
-
 const floralPanels = [
-  "bg-[linear-gradient(135deg,rgba(255,128,51,0.15),rgba(255,255,255,0.82),rgba(233,60,172,0.14))]",
-  "bg-[linear-gradient(135deg,rgba(247,201,41,0.18),rgba(255,255,255,0.86),rgba(76,154,50,0.12))]",
-  "bg-[linear-gradient(135deg,rgba(49,72,216,0.14),rgba(255,255,255,0.86),rgba(233,60,172,0.1))]",
-  "bg-[linear-gradient(135deg,rgba(76,154,50,0.14),rgba(255,255,255,0.84),rgba(255,122,33,0.14))]",
+  "bg-[linear-gradient(160deg,rgba(255,255,255,0.9),rgba(255,243,247,0.82),rgba(255,248,232,0.84))]",
+  "bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(244,247,255,0.82),rgba(255,240,246,0.78))]",
+  "bg-[linear-gradient(135deg,rgba(255,255,255,0.86),rgba(245,255,244,0.82),rgba(255,249,233,0.8))]",
+  "bg-[linear-gradient(135deg,rgba(255,255,255,0.86),rgba(255,245,228,0.8),rgba(255,255,255,0.78))]",
 ];
 
 export const PublicSite = ({
@@ -294,13 +286,13 @@ export const PublicSite = ({
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#fff8f1_0%,#fff4f7_28%,#fff7e7_58%,#fffdfa_100%)] px-4 py-10">
+    <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#fbf7f4_0%,#f7ede8_55%,#fbf8f5_100%)] px-4 py-10">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-6rem] top-[-3rem] h-56 w-56 rounded-full bg-[#e93cac]/18 blur-3xl" />
-        <div className="absolute right-[-2rem] top-24 h-64 w-64 rounded-full bg-[#ff7a21]/18 blur-3xl" />
-        <div className="absolute left-[18%] top-[24rem] h-48 w-48 rounded-full bg-[#3148d8]/14 blur-3xl" />
-        <div className="absolute bottom-24 right-[14%] h-72 w-72 rounded-full bg-[#f7c929]/20 blur-3xl" />
-        <div className="absolute bottom-[-4rem] left-[10%] h-64 w-64 rounded-full bg-[#4c9a32]/16 blur-3xl" />
+        <div className="absolute left-[-6rem] top-[-3rem] h-56 w-56 rounded-full bg-[#d89bae]/16 blur-3xl" />
+        <div className="absolute right-[-2rem] top-24 h-64 w-64 rounded-full bg-[#edb8a8]/18 blur-3xl" />
+        <div className="absolute left-[18%] top-[24rem] h-48 w-48 rounded-full bg-[#c8bde9]/12 blur-3xl" />
+        <div className="absolute bottom-24 right-[14%] h-72 w-72 rounded-full bg-[#f4dcc4]/18 blur-3xl" />
+        <div className="absolute bottom-[-4rem] left-[10%] h-64 w-64 rounded-full bg-[#dce8af]/14 blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-6xl space-y-8">
@@ -320,12 +312,12 @@ export const PublicSite = ({
           </Link>
         </div>
 
-        <section className="relative overflow-hidden rounded-[2.8rem] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.85),rgba(255,245,228,0.86),rgba(255,239,246,0.84))] p-8 shadow-[0_35px_140px_rgba(155,90,116,0.16)] backdrop-blur sm:p-12">
+        <section className="relative overflow-hidden rounded-[2.8rem] border border-white/80 bg-[linear-gradient(160deg,rgba(255,255,255,0.92),rgba(255,243,247,0.82),rgba(255,248,232,0.84))] p-8 shadow-[0_35px_140px_rgba(155,90,116,0.12)] backdrop-blur sm:p-12">
           <div className="pointer-events-none absolute inset-0 opacity-80">
-            <div className="absolute -left-8 top-16 h-36 w-36 rounded-full border border-[#ff7a21]/20 bg-[#ff7a21]/14" />
-            <div className="absolute left-20 top-6 h-24 w-24 rounded-full border border-[#f7c929]/20 bg-[#f7c929]/18" />
-            <div className="absolute right-12 top-10 h-40 w-40 rounded-full border border-[#e93cac]/20 bg-[#e93cac]/12" />
-            <div className="absolute bottom-6 right-40 h-24 w-24 rounded-full border border-[#3148d8]/20 bg-[#3148d8]/10" />
+            <div className="absolute -left-8 top-16 h-36 w-36 rounded-full border border-[#edb8a8]/20 bg-[#edb8a8]/14" />
+            <div className="absolute left-20 top-6 h-24 w-24 rounded-full border border-[#f4dcc4]/20 bg-[#f4dcc4]/18" />
+            <div className="absolute right-12 top-10 h-40 w-40 rounded-full border border-[#d89bae]/20 bg-[#d89bae]/12" />
+            <div className="absolute bottom-6 right-40 h-24 w-24 rounded-full border border-[#c8bde9]/20 bg-[#c8bde9]/10" />
           </div>
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
@@ -338,20 +330,9 @@ export const PublicSite = ({
               <p className="mt-4 max-w-2xl text-lg leading-8 text-[var(--color-muted-copy)]">
                 {messages.publicSite.description.replace("{venue}", data.venue)}
               </p>
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                {floralPalette.map((item) => (
-                  <span
-                    key={item.name}
-                    className={`h-4 w-12 rounded-full shadow-[0_8px_20px_rgba(59,47,52,0.08)] ${item.className}`}
-                  />
-                ))}
-              </div>
-              <p className="mt-4 max-w-xl text-sm uppercase tracking-[0.28em] text-[var(--color-muted-copy)]">
-                {messages.publicSite.paletteNote}
-              </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:max-w-[26rem]">
-              <div className="rounded-[1.6rem] border border-white/70 bg-white/72 px-5 py-4 shadow-[0_18px_50px_rgba(233,60,172,0.12)] backdrop-blur">
+              <div className="rounded-[1.6rem] border border-white/70 bg-white/78 px-5 py-4 shadow-[0_18px_50px_rgba(155,90,116,0.08)] backdrop-blur">
                 <p className="text-xs uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
                   {messages.publicSite.rsvpDeadline}
                 </p>
@@ -359,7 +340,7 @@ export const PublicSite = ({
                   {formatDateTime(data.rsvpDeadline, locale)}
                 </p>
               </div>
-              <div className="rounded-[1.6rem] border border-white/70 bg-white/72 px-5 py-4 shadow-[0_18px_50px_rgba(255,122,33,0.12)] backdrop-blur">
+              <div className="rounded-[1.6rem] border border-white/70 bg-white/78 px-5 py-4 shadow-[0_18px_50px_rgba(155,90,116,0.08)] backdrop-blur">
                 <p className="text-xs uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
                   {messages.publicSite.map}
                 </p>
@@ -367,7 +348,7 @@ export const PublicSite = ({
                   {data.venue}
                 </p>
               </div>
-              <div className="rounded-[1.8rem] border border-[#3b2f34]/8 bg-[linear-gradient(135deg,rgba(255,122,33,0.12),rgba(255,255,255,0.75),rgba(233,60,172,0.12))] px-5 py-5 shadow-[0_18px_50px_rgba(49,72,216,0.1)] backdrop-blur sm:col-span-2">
+              <div className="rounded-[1.8rem] border border-[#3b2f34]/8 bg-[linear-gradient(160deg,rgba(255,255,255,0.88),rgba(255,243,247,0.78),rgba(255,248,232,0.8))] px-5 py-5 shadow-[0_18px_50px_rgba(155,90,116,0.08)] backdrop-blur sm:col-span-2">
                 <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-dusty-rose)]">
                   {messages.publicSite.moodLabel}
                 </p>
@@ -379,7 +360,7 @@ export const PublicSite = ({
           </div>
         </section>
 
-        <Card className="border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.84),rgba(255,245,228,0.8),rgba(255,239,246,0.78))] shadow-[0_20px_80px_rgba(247,201,41,0.12)]">
+        <Card className="border-white/70 bg-white/85 shadow-[0_20px_80px_rgba(155,90,116,0.08)]">
           <CardContent className="flex flex-col items-center gap-4 p-6">
             <h2 className="font-display text-4xl text-[var(--color-ink)]">
               {messages.publicSite.countdown}
@@ -392,7 +373,7 @@ export const PublicSite = ({
         </Card>
 
         {(data.aboutText || data.dressCode) && (
-          <Card className="border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.86),rgba(255,245,228,0.8),rgba(255,255,255,0.78))] shadow-[0_20px_80px_rgba(255,122,33,0.08)]">
+          <Card className="border-white/70 bg-white/85 shadow-[0_20px_80px_rgba(155,90,116,0.08)]">
             <CardContent className="space-y-4 p-6">
               {data.aboutText && (
                 <>
@@ -419,7 +400,7 @@ export const PublicSite = ({
         )}
 
         {practicalInfo.length > 0 ? (
-          <Card className="border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.86),rgba(245,255,244,0.82),rgba(255,246,230,0.8))] shadow-[0_22px_90px_rgba(76,154,50,0.09)]">
+          <Card className="border-white/70 bg-white/85 shadow-[0_22px_90px_rgba(155,90,116,0.08)]">
             <CardContent className="space-y-4 p-6">
               <h2 className="font-display text-4xl text-[var(--color-ink)]">
                 {messages.publicSite.practicalInfo}
@@ -446,7 +427,7 @@ export const PublicSite = ({
         ) : null}
 
         {data.logistics.length > 0 ? (
-          <Card className="border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(255,240,246,0.8),rgba(255,249,233,0.76))] shadow-[0_22px_90px_rgba(233,60,172,0.08)]">
+          <Card className="border-white/70 bg-white/85 shadow-[0_22px_90px_rgba(155,90,116,0.08)]">
             <CardContent className="space-y-4 p-6">
               <h2 className="font-display text-4xl text-[var(--color-ink)]">
                 {messages.publicSite.logistics}
@@ -473,7 +454,7 @@ export const PublicSite = ({
         ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <Card className="border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(244,247,255,0.8),rgba(255,241,247,0.78))] shadow-[0_24px_90px_rgba(49,72,216,0.08)]">
+          <Card className="border-white/70 bg-white/85 shadow-[0_24px_90px_rgba(155,90,116,0.08)]">
             <CardContent className="space-y-4 p-6">
               <h2 className="font-display text-4xl text-[var(--color-ink)]">
                 {messages.publicSite.schedule}
@@ -491,6 +472,9 @@ export const PublicSite = ({
                   <h3 className="mt-2 font-display text-3xl text-[var(--color-ink)]">
                     {event.title}
                   </h3>
+                  <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">
+                    {event.description}
+                  </p>
                   <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
                     {event.location}
                   </p>
@@ -499,7 +483,7 @@ export const PublicSite = ({
             </CardContent>
           </Card>
 
-          <Card className="border-white/70 bg-[linear-gradient(160deg,rgba(255,255,255,0.9),rgba(255,243,247,0.82),rgba(255,248,232,0.84))] shadow-[0_30px_110px_rgba(233,60,172,0.1)]">
+          <Card className="border-white/70 bg-white/85 shadow-[0_30px_110px_rgba(155,90,116,0.08)]">
             <CardContent className="space-y-5 p-6">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="font-display text-4xl text-[var(--color-ink)]">

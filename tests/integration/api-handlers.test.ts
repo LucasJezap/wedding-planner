@@ -44,6 +44,8 @@ describe("API handlers", () => {
     const updated = await updateBudgetCategoryHandler(category.id, {
       name: category.name,
       plannedAmount: category.plannedAmount + 300,
+      estimateMin: category.estimateMin,
+      estimateMax: category.estimateMax,
       color: category.color,
       notes: category.notes,
     });

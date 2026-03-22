@@ -9,7 +9,6 @@ describe("useBudgetTotals", () => {
     const categories = seed.budgetCategories.map((category) => ({
       ...category,
       paidAmount: 100,
-      estimatedAmount: 150,
       actualAmount: 100,
       remainingAmount: category.plannedAmount - 100,
     }));

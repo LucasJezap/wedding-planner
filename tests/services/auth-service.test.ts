@@ -6,6 +6,7 @@ import {
   createAccountInvitation,
   listAccounts,
   listAccountInvitations,
+  updateAccount,
   updateAccountRole,
 } from "@/services/auth-service";
 import { DEMO_CREDENTIALS } from "@/lib/planner-seed";
@@ -83,6 +84,16 @@ describe("authenticateUser", () => {
 
     const updated = await updateAccountRole(created.id, "WITNESS");
     expect(updated.role).toBe("WITNESS");
+    const profileUpdated = await updateAccount(created.id, {
+      name: "Read Only Updated",
+      email: "readonly-updated@example.com",
+      role: "ADMIN",
+      password: "Avatar9999!",
+      confirmPassword: "Avatar9999!",
+    });
+    expect(profileUpdated.name).toBe("Read Only Updated");
+    expect(profileUpdated.email).toBe("readonly-updated@example.com");
+    expect(profileUpdated.role).toBe("ADMIN");
     expect(
       (await listAccountInvitations()).some(
         (item) => item.email === "readonly@example.com",

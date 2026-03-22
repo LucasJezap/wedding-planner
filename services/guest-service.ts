@@ -39,8 +39,6 @@ const buildGuestView = async (): Promise<GuestView[]> => {
         tableName: table?.name,
         groupName: invitationGroup?.name ?? guest.groupName,
         invitedGuestCount: invitationGroup?.invitedGuestCount,
-        allowsPlusOne: invitationGroup?.allowsPlusOne,
-        groupNotes: invitationGroup?.notes,
         rsvpStatus: invitationGroup?.sharedRsvpStatus ?? guest.rsvpStatus,
       };
     }),
@@ -50,8 +48,6 @@ const buildGuestView = async (): Promise<GuestView[]> => {
 const syncInvitationGroup = async (input: {
   name?: string;
   invitedGuestCount?: number;
-  allowsPlusOne?: boolean;
-  notes?: string;
   sharedRsvpStatus?: GuestView["rsvpStatus"];
 }) => {
   const repository = getRepository();
@@ -67,8 +63,8 @@ const syncInvitationGroup = async (input: {
   if (existing) {
     await repository.updateInvitationGroup(existing.id, {
       invitedGuestCount: input.invitedGuestCount ?? existing.invitedGuestCount,
-      allowsPlusOne: input.allowsPlusOne ?? existing.allowsPlusOne,
-      notes: input.notes ?? existing.notes,
+      allowsPlusOne: existing.allowsPlusOne,
+      notes: existing.notes,
       sharedRsvpStatus: input.sharedRsvpStatus ?? existing.sharedRsvpStatus,
       attendingChildren: existing.attendingChildren,
       plusOneName: existing.plusOneName,
@@ -87,8 +83,8 @@ const syncInvitationGroup = async (input: {
     weddingId: wedding.id,
     name: groupName,
     invitedGuestCount: input.invitedGuestCount ?? 1,
-    allowsPlusOne: input.allowsPlusOne ?? false,
-    notes: input.notes ?? "",
+    allowsPlusOne: false,
+    notes: "",
     sharedRsvpStatus: input.sharedRsvpStatus ?? "PENDING",
     attendingChildren: 0,
     plusOneName: "",
@@ -160,8 +156,6 @@ export const createGuest = async (input: GuestInput): Promise<GuestView> => {
   const invitationGroup = await syncInvitationGroup({
     name: data.groupName,
     invitedGuestCount: data.invitedGuestCount,
-    allowsPlusOne: data.allowsPlusOne,
-    notes: data.groupNotes,
     sharedRsvpStatus: data.rsvpStatus,
   });
 
@@ -219,8 +213,6 @@ export const updateGuest = async (
   const invitationGroup = await syncInvitationGroup({
     name: data.groupName,
     invitedGuestCount: data.invitedGuestCount,
-    allowsPlusOne: data.allowsPlusOne,
-    notes: data.groupNotes,
     sharedRsvpStatus: data.rsvpStatus,
   });
 
@@ -272,8 +264,6 @@ export const bulkUpdateGuests = async (
     rsvpStatus?: "PENDING" | "ATTENDING" | "DECLINED";
     groupName?: string;
     invitedGuestCount?: number;
-    allowsPlusOne?: boolean;
-    groupNotes?: string;
   },
 ): Promise<GuestView[]> => {
   const repository = getRepository();
@@ -283,8 +273,6 @@ export const bulkUpdateGuests = async (
       ? await syncInvitationGroup({
           name: updates.groupName,
           invitedGuestCount: updates.invitedGuestCount,
-          allowsPlusOne: updates.allowsPlusOne,
-          notes: updates.groupNotes,
         })
       : null;
   await Promise.all(

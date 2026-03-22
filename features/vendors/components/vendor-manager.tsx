@@ -19,7 +19,7 @@ import type {
   VendorCategoryRecord,
   VendorView,
 } from "@/lib/planner-domain";
-import { VENDOR_STATUSES } from "@/lib/planner-domain";
+import { VENDOR_CATEGORY_TYPES, VENDOR_STATUSES } from "@/lib/planner-domain";
 import { apiClient } from "@/lib/api-client";
 import { formatCurrency, formatDate } from "@/lib/format";
 
@@ -50,7 +50,7 @@ export const VendorManager = ({
   } = useForm<VendorInput>({
     defaultValues: {
       name: "",
-      categoryId: categories[0]?.id ?? "",
+      categoryId: categories[0]?.type ?? "OTHER",
       cost: 0,
       status: "RESEARCH",
       bookingDate: "",
@@ -99,7 +99,7 @@ export const VendorManager = ({
       setSelectedVendor(null);
       reset({
         name: "",
-        categoryId: categories[0]?.id ?? "",
+        categoryId: categories[0]?.type ?? "OTHER",
         cost: 0,
         status: "RESEARCH",
         bookingDate: "",
@@ -121,7 +121,7 @@ export const VendorManager = ({
     setSelectedVendor(vendor);
     reset({
       name: vendor.name,
-      categoryId: vendor.categoryId,
+      categoryId: vendor.categoryType,
       cost: vendor.cost,
       status: vendor.status,
       bookingDate: vendor.bookingDate ? vendor.bookingDate.slice(0, 16) : "",
@@ -166,10 +166,9 @@ export const VendorManager = ({
                   className="h-10 w-full rounded-xl border px-3"
                   {...register("categoryId")}
                 >
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name ||
-                        messages.enums.vendorCategoryType[category.type]}
+                  {VENDOR_CATEGORY_TYPES.map((categoryType) => (
+                    <option key={categoryType} value={categoryType}>
+                      {messages.enums.vendorCategoryType[categoryType]}
                     </option>
                   ))}
                 </select>
@@ -311,10 +310,9 @@ export const VendorManager = ({
             aria-label={messages.vendors.category}
           >
             <option value="ALL">{messages.dashboard.filters.all}</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name ||
-                  messages.enums.vendorCategoryType[category.type]}
+            {VENDOR_CATEGORY_TYPES.map((categoryType) => (
+              <option key={categoryType} value={categoryType}>
+                {messages.enums.vendorCategoryType[categoryType]}
               </option>
             ))}
           </select>

@@ -58,9 +58,13 @@ const getCompactGuestName = (guestName?: string) => {
 };
 
 const getSeatNameBlockLayout = (chairPosition: { x: number; y: number }) => {
+  const isBottomSeat = chairPosition.y > TABLE_CENTER.y;
+
   return {
     x: chairPosition.x - 62,
-    y: chairPosition.y - CHAIR_RADIUS - 34,
+    y: isBottomSeat
+      ? chairPosition.y + CHAIR_RADIUS + 8
+      : chairPosition.y - CHAIR_RADIUS - 34,
     width: 124,
     align: "center" as const,
   };

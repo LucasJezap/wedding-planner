@@ -44,11 +44,11 @@ const getRoundChairPosition = (index: number): CanvasPoint => {
 const RECTANGULAR_CHAIR_POSITIONS: CanvasPoint[] = [
   { x: 154, y: 110 },
   { x: 252, y: 110 },
-  { x: 330, y: 110 },
   { x: 408, y: 110 },
+  { x: 506, y: 110 },
   { x: 596, y: TABLE_CENTER.y },
+  { x: 506, y: 430 },
   { x: 408, y: 430 },
-  { x: 330, y: 430 },
   { x: 252, y: 430 },
   { x: 154, y: 430 },
   { x: 64, y: TABLE_CENTER.y },

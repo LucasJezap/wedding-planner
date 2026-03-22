@@ -53,9 +53,18 @@ export const AccessManager = ({
     },
   });
 
-  const visibleUsers = canManageAccess
-    ? users
-    : users.filter((user) => user.id === currentUserId);
+  const visibleUsers = users
+    .slice()
+    .sort((left, right) => {
+      if (left.id === currentUserId) {
+        return -1;
+      }
+      if (right.id === currentUserId) {
+        return 1;
+      }
+      return left.name.localeCompare(right.name);
+    })
+    .filter((user) => canManageAccess || user.id === currentUserId);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
@@ -179,6 +188,7 @@ export const AccessManager = ({
             const isEditing = editingUserId === user.id && editValues;
             const canEditPassword =
               user.id === currentUserId && viewerRole !== "ADMIN";
+            const isCurrentUser = user.id === currentUserId;
 
             return (
               <Card key={user.id} className="border-white/70 bg-white/85">
@@ -242,44 +252,9 @@ export const AccessManager = ({
                       </div>
                       <div
                         className={`grid gap-3 ${
-                          canEditPassword ? "sm:grid-cols-3" : "sm:grid-cols-1"
+                          canEditPassword ? "sm:grid-cols-2" : "sm:grid-cols-1"
                         }`}
                       >
-                        <label className="space-y-1 text-sm text-[var(--color-ink)]">
-                          <span>{messages.access.role}</span>
-                          {canManageAccess ? (
-                            <select
-                              className="h-10 w-full rounded-xl border px-3"
-                              value={editValues.role}
-                              onChange={(event) =>
-                                setEditValues((current) =>
-                                  current
-                                    ? {
-                                        ...current,
-                                        role: event.target
-                                          .value as UserRecord["role"],
-                                      }
-                                    : current,
-                                )
-                              }
-                            >
-                              <option value="ADMIN">
-                                {messages.shell.roles.ADMIN}
-                              </option>
-                              <option value="WITNESS">
-                                {messages.shell.roles.WITNESS}
-                              </option>
-                              <option value="READ_ONLY">
-                                {messages.shell.roles.READ_ONLY}
-                              </option>
-                            </select>
-                          ) : (
-                            <Input
-                              value={messages.shell.roles[editValues.role]}
-                              readOnly
-                            />
-                          )}
-                        </label>
                         {canEditPassword ? (
                           <>
                             <label className="space-y-1 text-sm text-[var(--color-ink)]">
@@ -343,6 +318,11 @@ export const AccessManager = ({
                   ) : (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
+                        {isCurrentUser ? (
+                          <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                            {messages.access.editAccount}
+                          </p>
+                        ) : null}
                         <h3 className="font-display text-3xl text-[var(--color-ink)]">
                           {user.name}
                         </h3>

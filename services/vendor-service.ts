@@ -1,9 +1,28 @@
 import { getRepository } from "@/db/repositories";
-import type { VendorView } from "@/lib/planner-domain";
+import type { VendorCategoryType, VendorView } from "@/lib/planner-domain";
 import {
   vendorInputSchema,
   type VendorInput,
 } from "@/features/vendors/types/vendor";
+
+const resolveVendorCategoryId = async (
+  categoryIdOrType: string,
+): Promise<string> => {
+  const categories = await getRepository().listVendorCategories();
+  const byId = categories.find((category) => category.id === categoryIdOrType);
+  if (byId) {
+    return byId.id;
+  }
+
+  const byType = categories.find(
+    (category) => category.type === (categoryIdOrType as VendorCategoryType),
+  );
+  if (byType) {
+    return byType.id;
+  }
+
+  throw new Error("Vendor category not found");
+};
 
 const buildVendors = async (): Promise<VendorView[]> => {
   const repository = getRepository();
@@ -51,7 +70,7 @@ export const createVendor = async (input: VendorInput): Promise<VendorView> => {
   const vendor = await repository.createVendor(
     {
       weddingId: wedding.id,
-      categoryId: data.categoryId,
+      categoryId: await resolveVendorCategoryId(data.categoryId),
       name: data.name,
       cost: data.cost,
       status: data.status,
@@ -99,7 +118,7 @@ export const updateVendor = async (
   await repository.updateVendor(
     vendorId,
     {
-      categoryId: data.categoryId,
+      categoryId: await resolveVendorCategoryId(data.categoryId),
       name: data.name,
       cost: data.cost,
       status: data.status,

@@ -76,15 +76,13 @@ export const AppShell = ({
       label: messages.shell.nav.publicSite,
       section: "public" as PlannerSection,
     },
-    ...(canManageAccess(userRole)
-      ? [
-          {
-            href: "/access",
-            label: messages.shell.nav.access,
-            section: "access" as PlannerSection,
-          },
-        ]
-      : []),
+    {
+      href: "/access",
+      label: canManageAccess(userRole)
+        ? messages.shell.nav.access
+        : messages.access.editAccount,
+      section: "dashboard" as PlannerSection,
+    },
   ].filter((item) => canAccessSection(userRole, item.section));
 
   return (

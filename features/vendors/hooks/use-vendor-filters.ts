@@ -13,7 +13,11 @@ export const useVendorFilters = (
   const query = deferredSearch.trim().toLowerCase();
 
   return vendors.filter((vendor) => {
-    if (categoryId !== "ALL" && vendor.categoryId !== categoryId) {
+    if (
+      categoryId !== "ALL" &&
+      vendor.categoryId !== categoryId &&
+      vendor.categoryType !== categoryId
+    ) {
       return false;
     }
 

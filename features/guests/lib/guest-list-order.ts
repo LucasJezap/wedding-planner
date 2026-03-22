@@ -7,8 +7,14 @@ const sideOrder: Record<GuestSide, number> = {
   FRIENDS: 3,
 };
 
+const textCollator = new Intl.Collator("pl", { sensitivity: "base" });
+const groupCollator = new Intl.Collator("pl", {
+  sensitivity: "base",
+  numeric: true,
+});
+
 const compareStrings = (left: string, right: string) =>
-  left.localeCompare(right, "pl", { sensitivity: "base" });
+  textCollator.compare(left, right);
 
 const getGroupKey = (guest: GuestView) =>
   guest.invitationGroupId ?? guest.groupName?.trim() ?? "";
@@ -30,7 +36,7 @@ export const sortGuestsForList = (guests: GuestView[]) =>
     }
 
     if (leftGroupKey !== rightGroupKey) {
-      return compareStrings(
+      return groupCollator.compare(
         left.groupName ?? leftGroupKey,
         right.groupName ?? rightGroupKey,
       );

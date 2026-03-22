@@ -57,68 +57,11 @@ const getCompactGuestName = (guestName?: string) => {
   return `${firstName} ${lastName?.[0] ?? ""}.`;
 };
 
-const getSeatNameBlockLayout = (
-  chairPosition: { x: number; y: number },
-  shape: TableShape,
-) => {
-  if (shape === "RECTANGULAR") {
-    if (chairPosition.y < TABLE_CENTER.y) {
-      return {
-        x: chairPosition.x - 86,
-        y: chairPosition.y + 54,
-        width: 144,
-        align: "center" as const,
-      };
-    }
-    if (chairPosition.y > TABLE_CENTER.y) {
-      return {
-        x: chairPosition.x - 86,
-        y: chairPosition.y - 72,
-        width: 144,
-        align: "center" as const,
-      };
-    }
-    if (chairPosition.x < TABLE_CENTER.x) {
-      return {
-        x: chairPosition.x + 56,
-        y: chairPosition.y - 12,
-        width: 116,
-        align: "left" as const,
-      };
-    }
-    return {
-      x: chairPosition.x - 176,
-      y: chairPosition.y - 12,
-      width: 116,
-      align: "right" as const,
-    };
-  }
-
-  if (chairPosition.x < TABLE_CENTER.x - 28) {
-    return {
-      x: chairPosition.x + 38,
-      y: chairPosition.y - 12,
-      width: 116,
-      align: "left" as const,
-    };
-  }
-
-  if (chairPosition.x > TABLE_CENTER.x + 28) {
-    return {
-      x: chairPosition.x - 154,
-      y: chairPosition.y - 12,
-      width: 116,
-      align: "right" as const,
-    };
-  }
-
+const getSeatNameBlockLayout = (chairPosition: { x: number; y: number }) => {
   return {
-    x: chairPosition.x - 86,
-    y:
-      chairPosition.y < TABLE_CENTER.y
-        ? chairPosition.y + 54
-        : chairPosition.y - 72,
-    width: 144,
+    x: chairPosition.x - 62,
+    y: chairPosition.y - CHAIR_RADIUS - 34,
+    width: 124,
     align: "center" as const,
   };
 };
@@ -242,7 +185,7 @@ export const SeatingCanvasTable = ({
         const seat = table.seats[seatIndex];
         const chair = getChairPosition(seatIndex, shape);
         const isFilled = Boolean(seat?.guestId);
-        const nameLayout = getSeatNameBlockLayout(chair, shape);
+        const nameLayout = getSeatNameBlockLayout(chair);
 
         return (
           <Group

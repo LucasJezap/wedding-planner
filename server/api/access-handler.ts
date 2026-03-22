@@ -31,7 +31,11 @@ export const createAccountHandler = async (
 export const updateAccountHandler = async (
   userId: string,
   input: AccountUpdateInput,
-) => updateAccount(userId, input);
+  actor: {
+    userId: string;
+    role: "ADMIN" | "WITNESS" | "READ_ONLY";
+  },
+) => updateAccount(userId, input, actor);
 
 export const getInvitationHandler = async (token: string) =>
   getInvitationByToken(token);

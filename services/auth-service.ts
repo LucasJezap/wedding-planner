@@ -122,15 +122,29 @@ export const updateAccount = async (
     password?: string;
     confirmPassword?: string;
   },
+  actor: {
+    userId: string;
+    role: UserRole;
+  },
 ) => {
   const repository = getRepository();
+  const users = await repository.listUsers();
+  const current = users.find((user) => user.id === userId);
+  if (!current) {
+    throw new Error("Account not found");
+  }
+  if (actor.role !== "ADMIN" && actor.userId !== userId) {
+    throw new Error("Forbidden");
+  }
   const data = accountUpdateSchema.parse({
     ...input,
+    role: actor.role === "ADMIN" ? input.role : current.role,
     password: input.password ?? "",
     confirmPassword: input.confirmPassword ?? "",
   });
-
-  const users = await repository.listUsers();
+  if (actor.role === "ADMIN" && data.password.length > 0) {
+    throw new Error("Forbidden");
+  }
   const duplicateUser = users.find(
     (user) =>
       user.id !== userId &&
@@ -143,9 +157,11 @@ export const updateAccount = async (
   return repository.updateUser(userId, {
     name: data.name.trim(),
     email: data.email.trim().toLowerCase(),
-    role: data.role,
+    role: actor.role === "ADMIN" ? data.role : current.role,
     passwordHash:
-      data.password.length > 0 ? await hash(data.password, 8) : undefined,
+      actor.role !== "ADMIN" && data.password.length > 0
+        ? await hash(data.password, 8)
+        : undefined,
   });
 };
 

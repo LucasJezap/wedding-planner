@@ -798,11 +798,11 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   key={task.id}
                   className="rounded-[1.5rem] border border-[#f2d2ca] bg-[linear-gradient(135deg,rgba(255,248,246,0.96),rgba(255,238,231,0.92))] p-4"
                 >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col items-start gap-3">
                     <h3 className="font-display text-2xl text-[var(--color-ink)]">
                       {task.title}
                     </h3>
-                    <span className="shrink-0 rounded-full border border-[#d89181] bg-[#c95d42] px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
+                    <span className="inline-flex shrink-0 rounded-full border border-[#d89181] bg-[#c95d42] px-3 py-1 text-xs uppercase tracking-[0.2em] text-white">
                       {messages.dashboard.overdue}
                     </span>
                   </div>

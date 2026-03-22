@@ -455,6 +455,8 @@ const dictionaries = {
       createExpense: "Utwórz wydatek",
       saveExpense: "Zapisz wydatek",
       categoryMix: "Struktura kategorii",
+      exactAmount: "Dokładna kwota",
+      estimateRange: "Zakres estymacji",
       plannedActual: (planned: string, actual: string) =>
         `Plan ${planned} / Rzeczywiste ${actual}`,
       rangeLabel: (min: string, max: string) => `Estymacja: ${min} - ${max}`,
@@ -1102,6 +1104,8 @@ const dictionaries = {
       createExpense: "Create expense",
       saveExpense: "Save expense",
       categoryMix: "Category mix",
+      exactAmount: "Exact amount",
+      estimateRange: "Estimate range",
       plannedActual: (planned: string, actual: string) =>
         `Planned ${planned} / Actual ${actual}`,
       rangeLabel: (min: string, max: string) => `Estimate: ${min} - ${max}`,

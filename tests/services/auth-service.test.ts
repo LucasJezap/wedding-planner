@@ -84,21 +84,50 @@ describe("authenticateUser", () => {
 
     const updated = await updateAccountRole(created.id, "WITNESS");
     expect(updated.role).toBe("WITNESS");
-    const profileUpdated = await updateAccount(created.id, {
-      name: "Read Only Updated",
-      email: "readonly-updated@example.com",
-      role: "ADMIN",
-      password: "Avatar9999!",
-      confirmPassword: "Avatar9999!",
-    });
+    const profileUpdated = await updateAccount(
+      created.id,
+      {
+        name: "Read Only Updated",
+        email: "readonly-updated@example.com",
+        role: "ADMIN",
+        password: "Avatar9999!",
+        confirmPassword: "Avatar9999!",
+      },
+      {
+        userId: created.id,
+        role: "READ_ONLY",
+      },
+    );
     expect(profileUpdated.name).toBe("Read Only Updated");
     expect(profileUpdated.email).toBe("readonly-updated@example.com");
-    expect(profileUpdated.role).toBe("ADMIN");
+    expect(profileUpdated.role).toBe("WITNESS");
     expect(
       (await listAccountInvitations()).some(
         (item) => item.email === "readonly@example.com",
       ),
     ).toBe(false);
+  });
+
+  it("blocks password changes initiated by admins", async () => {
+    const accounts = await listAccounts();
+    const target = accounts.find((user) => user.role !== "ADMIN")!;
+
+    await expect(
+      updateAccount(
+        target.id,
+        {
+          name: target.name,
+          email: target.email,
+          role: target.role,
+          password: "Admin9999!",
+          confirmPassword: "Admin9999!",
+        },
+        {
+          userId: accounts[0]!.id,
+          role: "ADMIN",
+        },
+      ),
+    ).rejects.toThrow("Forbidden");
   });
 
   it("rejects inviting an existing account", async () => {

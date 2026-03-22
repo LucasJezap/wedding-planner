@@ -100,6 +100,21 @@ const categoryPalette = [
 const sortCategories = (items: BudgetCategoryView[]) =>
   items.slice().sort((left, right) => right.plannedAmount - left.plannedAmount);
 
+type CategoryAmountMode = "EXACT" | "RANGE";
+
+const getCategoryAmountMode = (
+  category?: BudgetCategoryView | null,
+): CategoryAmountMode =>
+  category && category.estimateMin !== category.estimateMax ? "RANGE" : "EXACT";
+
+const formatCategoryAmount = (
+  category: BudgetCategoryView,
+  locale: "pl" | "en" | undefined,
+) =>
+  category.estimateMin === category.estimateMax
+    ? formatCurrency(category.plannedAmount, locale)
+    : `${formatCurrency(category.estimateMin, locale)} / ${formatCurrency(category.estimateMax, locale)}`;
+
 export const BudgetManager = ({
   initialCategories,
   initialExpenses,
@@ -120,6 +135,8 @@ export const BudgetManager = ({
   const [selectedCategoryColor, setSelectedCategoryColor] = useState(
     categoryPalette[0],
   );
+  const [categoryAmountMode, setCategoryAmountMode] =
+    useState<CategoryAmountMode>("EXACT");
   const [showCategoryColors, setShowCategoryColors] = useState(false);
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(
     null,
@@ -152,6 +169,7 @@ export const BudgetManager = ({
     handleSubmit: handleCategorySubmit,
     reset: resetCategory,
     setValue: setCategoryValue,
+    getValues: getCategoryValues,
     formState: { errors: categoryErrors, isSubmitting: isCategorySubmitting },
   } = useForm<BudgetCategoryInput>({
     defaultValues: {
@@ -199,6 +217,7 @@ export const BudgetManager = ({
   const resetCategoryForm = () => {
     setSelectedCategory(null);
     setSelectedCategoryColor(categoryPalette[0]);
+    setCategoryAmountMode("EXACT");
     resetCategory({
       name: "",
       plannedAmount: 0,
@@ -223,6 +242,7 @@ export const BudgetManager = ({
   const handleEditCategory = (category: BudgetCategoryView) => {
     setSelectedCategory(category);
     setSelectedCategoryColor(category.color);
+    setCategoryAmountMode(getCategoryAmountMode(category));
     resetCategory({
       name: category.name,
       plannedAmount: category.plannedAmount,
@@ -301,7 +321,7 @@ export const BudgetManager = ({
               </p>
               <p className="mt-2 font-display text-4xl text-[var(--color-ink)]">
                 {formatCurrency(
-                  Math.max(totals.actual - totals.paid, 0),
+                  Math.max(totals.planned - totals.paid, 0),
                   locale,
                 )}
               </p>
@@ -325,15 +345,35 @@ export const BudgetManager = ({
               className="space-y-3"
               onSubmit={handleCategorySubmit(async (values) => {
                 try {
+                  const exactAmount = Number(
+                    values.plannedAmount ||
+                      values.estimateMax ||
+                      values.estimateMin,
+                  );
+                  const estimateMin = Number(values.estimateMin);
+                  const estimateMax = Number(
+                    values.estimateMax || values.plannedAmount,
+                  );
+                  const payload =
+                    categoryAmountMode === "EXACT"
+                      ? {
+                          ...values,
+                          plannedAmount: exactAmount,
+                          estimateMin: exactAmount,
+                          estimateMax: exactAmount,
+                        }
+                      : {
+                          ...values,
+                          plannedAmount: estimateMax,
+                          estimateMin,
+                          estimateMax,
+                        };
                   await apiClient<BudgetCategoryView>(
                     selectedCategory ? "/api/budget" : "/api/budget/categories",
                     {
                       method: selectedCategory ? "PATCH" : "POST",
                       body: JSON.stringify({
-                        ...values,
-                        plannedAmount: Number(values.plannedAmount),
-                        estimateMin: Number(values.estimateMin),
-                        estimateMax: Number(values.estimateMax),
+                        ...payload,
                         categoryId: selectedCategory?.id,
                       }),
                     },
@@ -353,38 +393,103 @@ export const BudgetManager = ({
                 />
                 <FieldError error={categoryErrors.name} />
               </label>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
-                  <span>{messages.budget.planAmount}</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    {...registerCategory("plannedAmount", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                </label>
-                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
-                  <span>{messages.budget.estimateMin}</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    {...registerCategory("estimateMin", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                </label>
-                <label className="block space-y-2 text-sm text-[var(--color-ink)]">
-                  <span>{messages.budget.estimateMax}</span>
-                  <Input
-                    type="number"
-                    step="1"
-                    {...registerCategory("estimateMax", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                  <FieldError error={categoryErrors.estimateMax} />
-                </label>
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    type="button"
+                    variant={
+                      categoryAmountMode === "EXACT" ? "default" : "outline"
+                    }
+                    onClick={() => {
+                      const currentValues = getCategoryValues();
+                      const exactAmount = Number(
+                        currentValues.plannedAmount ||
+                          currentValues.estimateMax ||
+                          currentValues.estimateMin,
+                      );
+                      setCategoryAmountMode("EXACT");
+                      setCategoryValue("plannedAmount", exactAmount, {
+                        shouldDirty: true,
+                      });
+                      setCategoryValue("estimateMin", exactAmount, {
+                        shouldDirty: true,
+                      });
+                      setCategoryValue("estimateMax", exactAmount, {
+                        shouldDirty: true,
+                      });
+                    }}
+                  >
+                    {messages.budget.exactAmount}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={
+                      categoryAmountMode === "RANGE" ? "default" : "outline"
+                    }
+                    onClick={() => {
+                      const currentValues = getCategoryValues();
+                      const fallbackAmount = Number(
+                        currentValues.plannedAmount ||
+                          currentValues.estimateMax ||
+                          currentValues.estimateMin,
+                      );
+                      setCategoryAmountMode("RANGE");
+                      setCategoryValue(
+                        "estimateMin",
+                        Number(currentValues.estimateMin || fallbackAmount),
+                        {
+                          shouldDirty: true,
+                        },
+                      );
+                      setCategoryValue(
+                        "estimateMax",
+                        Number(currentValues.estimateMax || fallbackAmount),
+                        {
+                          shouldDirty: true,
+                        },
+                      );
+                    }}
+                  >
+                    {messages.budget.estimateRange}
+                  </Button>
+                </div>
+                {categoryAmountMode === "EXACT" ? (
+                  <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                    <span>{messages.budget.planAmount}</span>
+                    <Input
+                      type="number"
+                      step="1"
+                      {...registerCategory("plannedAmount", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                    <FieldError error={categoryErrors.plannedAmount} />
+                  </label>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                      <span>{messages.budget.estimateMin}</span>
+                      <Input
+                        type="number"
+                        step="1"
+                        {...registerCategory("estimateMin", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </label>
+                    <label className="block space-y-2 text-sm text-[var(--color-ink)]">
+                      <span>{messages.budget.estimateMax}</span>
+                      <Input
+                        type="number"
+                        step="1"
+                        {...registerCategory("estimateMax", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                      <FieldError error={categoryErrors.estimateMax} />
+                    </label>
+                  </div>
+                )}
               </div>
               <div className="rounded-[1.25rem] border border-[var(--color-card-tint)]/80 p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -731,29 +836,15 @@ export const BudgetManager = ({
                       </Button>
                     </div>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="grid gap-3 sm:grid-cols-3">
                     <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
                       <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                        {messages.budget.plan}
+                        {category.estimateMin === category.estimateMax
+                          ? messages.budget.plan
+                          : messages.budget.estimateRange}
                       </p>
                       <p className="mt-2 text-lg text-[var(--color-ink)]">
-                        {formatCurrency(category.plannedAmount, locale)}
-                      </p>
-                    </div>
-                    <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                        {messages.budget.estimateMin}
-                      </p>
-                      <p className="mt-2 text-lg text-[var(--color-ink)]">
-                        {formatCurrency(category.estimateMin, locale)}
-                      </p>
-                    </div>
-                    <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
-                        {messages.budget.estimateMax}
-                      </p>
-                      <p className="mt-2 text-lg text-[var(--color-ink)]">
-                        {formatCurrency(category.estimateMax, locale)}
+                        {formatCategoryAmount(category, locale)}
                       </p>
                     </div>
                     <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
@@ -762,6 +853,14 @@ export const BudgetManager = ({
                       </p>
                       <p className="mt-2 text-lg text-[var(--color-ink)]">
                         {formatCurrency(category.paidAmount, locale)}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.25rem] bg-[var(--color-card-tint)]/55 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                        {messages.budget.remaining}
+                      </p>
+                      <p className="mt-2 text-lg text-[var(--color-ink)]">
+                        {formatCurrency(category.remainingAmount, locale)}
                       </p>
                     </div>
                   </div>
@@ -796,7 +895,7 @@ export const BudgetManager = ({
                                 {expense.name}
                               </p>
                               <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
-                                {formatCurrency(expense.actualAmount, locale)}
+                                {formatCurrency(expense.paidAmount, locale)}
                               </p>
                               <p className="mt-1 text-sm text-[var(--color-muted-copy)]">
                                 {expense.dueDate

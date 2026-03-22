@@ -115,6 +115,7 @@ export const SeatingPlanner = ({
   const [seatEditor, setSeatEditor] = useState<SeatEditorState | null>(null);
   const [hoveredSlotIndex, setHoveredSlotIndex] = useState<number | null>(null);
   const [previewTooltip, setPreviewTooltip] = useState<{
+    tableId: string;
     label: string;
     x: number;
     y: number;
@@ -515,6 +516,7 @@ export const SeatingPlanner = ({
                           }}
                           onMouseEnter={() =>
                             setPreviewTooltip({
+                              tableId: table.id,
                               label: seat.guestName ?? seat.label,
                               x: chair.x * previewScale,
                               y:
@@ -523,6 +525,7 @@ export const SeatingPlanner = ({
                           }
                           onMouseMove={() =>
                             setPreviewTooltip({
+                              tableId: table.id,
                               label: seat.guestName ?? seat.label,
                               x: chair.x * previewScale,
                               y:
@@ -535,7 +538,7 @@ export const SeatingPlanner = ({
                         </div>
                       );
                     })}
-                    {previewTooltip ? (
+                    {previewTooltip && previewTooltip.tableId === table.id ? (
                       <div
                         className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-full bg-[var(--color-ink)] px-3 py-1 text-xs text-white shadow-[0_12px_30px_rgba(59,47,52,0.2)]"
                         style={{

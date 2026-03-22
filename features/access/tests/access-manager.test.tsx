@@ -25,7 +25,15 @@ describe("AccessManager", () => {
       activationUrl: "http://localhost:3000/activate?token=token-123",
     });
 
-    render(<AccessManager initialUsers={seed.users} initialInvitations={[]} />);
+    render(
+      <AccessManager
+        initialUsers={seed.users}
+        initialInvitations={[]}
+        currentUserId={seed.users[0]!.id}
+        viewerRole="ADMIN"
+        canManageAccess
+      />,
+    );
 
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Email"), "new-user@example.com");
@@ -47,17 +55,23 @@ describe("AccessManager", () => {
       email: "witness-updated@example.com",
     });
 
-    render(<AccessManager initialUsers={seed.users} initialInvitations={[]} />);
+    render(
+      <AccessManager
+        initialUsers={seed.users}
+        initialInvitations={[]}
+        currentUserId={targetUser.id}
+        viewerRole="WITNESS"
+        canManageAccess={false}
+      />,
+    );
 
     const user = userEvent.setup();
-    await user.click(
-      screen.getAllByRole("button", { name: "Edytuj konto" })[1]!,
-    );
+    await user.click(screen.getByRole("button", { name: "Edytuj konto" }));
     await user.clear(screen.getByDisplayValue(targetUser.name));
     await user.type(screen.getByLabelText("Imię i nazwisko"), "Nowy Swiadek");
     await user.clear(screen.getByDisplayValue(targetUser.email));
     await user.type(
-      screen.getAllByRole("textbox")[2]!,
+      screen.getByLabelText("Email"),
       "witness-updated@example.com",
     );
     await user.type(screen.getByLabelText("Hasło"), "newpassword");

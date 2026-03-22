@@ -23,7 +23,8 @@ export const useVendorFilters = (
 
     return (
       vendor.name.toLowerCase().includes(query) ||
-      vendor.categoryName.toLowerCase().includes(query)
+      vendor.categoryName.toLowerCase().includes(query) ||
+      vendor.categoryType.toLowerCase().includes(query)
     );
   });
 };

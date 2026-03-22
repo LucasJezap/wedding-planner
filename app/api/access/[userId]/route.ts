@@ -11,12 +11,15 @@ type Context = {
 export const PATCH = async (request: Request, context: Context) => {
   try {
     const session = await getRequiredSession();
-    if (session.user.role !== "ADMIN") {
+    const { userId } = await context.params;
+    if (session.user.role !== "ADMIN" && session.user.id !== userId) {
       throw new Error("Forbidden");
     }
-    const { userId } = await context.params;
     return successResponse(
-      await updateAccountHandler(userId, await request.json()),
+      await updateAccountHandler(userId, await request.json(), {
+        userId: session.user.id,
+        role: session.user.role,
+      }),
     );
   } catch (error) {
     return errorResponse(

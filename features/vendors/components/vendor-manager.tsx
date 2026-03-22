@@ -168,7 +168,8 @@ export const VendorManager = ({
                 >
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
-                      {category.name}
+                      {category.name ||
+                        messages.enums.vendorCategoryType[category.type]}
                     </option>
                   ))}
                 </select>
@@ -312,7 +313,8 @@ export const VendorManager = ({
             <option value="ALL">{messages.dashboard.filters.all}</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.name}
+                {category.name ||
+                  messages.enums.vendorCategoryType[category.type]}
               </option>
             ))}
           </select>
@@ -338,13 +340,17 @@ export const VendorManager = ({
               <CardContent className="space-y-3 p-5">
                 <div>
                   <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
-                    {vendor.categoryName}
+                    {vendor.categoryName ||
+                      messages.enums.vendorCategoryType[vendor.categoryType]}
                   </p>
                   <h3 className="font-display text-3xl text-[var(--color-ink)]">
                     {vendor.name}
                   </h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-white px-3 py-1 text-xs uppercase tracking-[0.2em] text-[var(--color-dusty-rose)]">
+                    {messages.enums.vendorCategoryType[vendor.categoryType]}
+                  </span>
                   <span className="rounded-full bg-[var(--color-card-tint)] px-3 py-1 text-xs uppercase tracking-[0.2em] text-[var(--color-ink)]">
                     {messages.enums.vendorStatus[vendor.status]}
                   </span>

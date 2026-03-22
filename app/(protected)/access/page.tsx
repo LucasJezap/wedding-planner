@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
 import { AccessManager } from "@/features/access/components/access-manager";
 import { canManageAccess } from "@/lib/access-control";
@@ -8,10 +7,9 @@ import { listAccountInvitations, listAccounts } from "@/services/auth-service";
 
 export default async function AccessPage() {
   const session = await requirePageAccess("dashboard");
-  if (!canManageAccess(session.user.role)) {
-    redirect("/dashboard");
-  }
   const { messages } = await getRequestMessages();
+  const users = await listAccounts();
+  const canManage = canManageAccess(session.user.role);
 
   return (
     <PageShell
@@ -20,8 +18,11 @@ export default async function AccessPage() {
       description={messages.access.description}
     >
       <AccessManager
-        initialUsers={await listAccounts()}
-        initialInvitations={await listAccountInvitations()}
+        initialUsers={users}
+        initialInvitations={canManage ? await listAccountInvitations() : []}
+        currentUserId={session.user.id}
+        viewerRole={session.user.role}
+        canManageAccess={canManage}
       />
     </PageShell>
   );

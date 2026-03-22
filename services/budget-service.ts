@@ -17,6 +17,17 @@ import { fromDateTimeLocalValue } from "@/lib/date-time";
 const sum = (values: number[]) =>
   values.reduce((total, value) => total + value, 0);
 
+const resolveExpensePaidAmount = (
+  actualAmount: number,
+  expensePayments: PaymentRecord[],
+) => {
+  if (expensePayments.length === 0) {
+    return actualAmount;
+  }
+
+  return sum(expensePayments.map((payment) => payment.amount));
+};
+
 export const getBudgetOverview = async (): Promise<{
   categories: BudgetCategoryView[];
   expenses: ExpenseView[];
@@ -34,7 +45,10 @@ export const getBudgetOverview = async (): Promise<{
       const expensePayments = payments
         .filter((payment) => payment.expenseId === expense.id)
         .sort((left, right) => right.paidAt.localeCompare(left.paidAt));
-      const paidAmount = sum(expensePayments.map((payment) => payment.amount));
+      const paidAmount = resolveExpensePaidAmount(
+        expense.actualAmount,
+        expensePayments,
+      );
       const category = categories.find(
         (candidate) => candidate.id === expense.categoryId,
       );

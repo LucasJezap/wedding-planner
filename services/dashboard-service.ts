@@ -11,6 +11,8 @@ import { listTimelineEvents } from "@/services/timeline-service";
 import { listVendors } from "@/services/vendor-service";
 import { canViewDashboardTasks } from "@/lib/access-control";
 
+const toIsoDecisionDate = (value: string) => new Date(value).toISOString();
+
 export const getDashboardData = async (options?: {
   viewerRole?: UserRole;
 }): Promise<DashboardData> => {
@@ -246,7 +248,7 @@ export const getDashboardData = async (options?: {
       title: task.isOverdue
         ? `Domknij zaległe zadanie: ${task.title}`
         : `Ustal kolejny krok dla zadania: ${task.title}`,
-      detail: `Termin: ${task.dueDate}`,
+      detail: `Termin: ${toIsoDecisionDate(task.dueDate)}`,
       href: `/tasks#task-${task.id}`,
       taskAssignee: task.assignee,
     })),

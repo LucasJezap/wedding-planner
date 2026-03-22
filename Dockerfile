@@ -1,7 +1,10 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+COPY prisma.config.ts ./prisma.config.ts
+COPY prisma ./prisma
+RUN npm ci --ignore-scripts
+RUN npx prisma generate
 
 FROM node:22-alpine AS builder
 WORKDIR /app
@@ -17,6 +20,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/prisma ./prisma
 RUN npm ci --omit=dev --ignore-scripts
 RUN npx prisma generate

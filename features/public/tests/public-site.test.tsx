@@ -28,7 +28,7 @@ describe("PublicSite", () => {
           name: guest.fullName,
           status: "ATTENDING",
           guestCount: 2,
-          attendingChildren: 0,
+          attendingChildren: 1,
           plusOneName: "",
           mealChoice: "",
           dietaryNotes: "",
@@ -90,7 +90,7 @@ describe("PublicSite", () => {
 
     expect(screen.getByText("Plan dnia")).toBeInTheDocument();
     expect(screen.getByText("Informacje organizacyjne")).toBeInTheDocument();
-    expect(screen.getByText("Parking")).toBeInTheDocument();
+    expect(screen.getAllByText("Parking").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("link", { name: "Dodaj do kalendarza" }),
     ).toBeInTheDocument();
@@ -105,17 +105,11 @@ describe("PublicSite", () => {
     );
     await user.click(screen.getByRole("button", { name: "Pokaż moje RSVP" }));
     expect(screen.getByText("Grupa zaproszenia")).toBeInTheDocument();
-    await user.selectOptions(
-      screen.getByLabelText("Liczba potwierdzonych miejsc"),
-      "2",
-    );
-    await user.selectOptions(screen.getByLabelText("Liczba dzieci"), "1");
-    await user.type(
-      screen.getByPlaceholderText(
-        "Wpisz osobę towarzyszącą, jeśli została zaproszona",
+    expect(
+      screen.getByText(
+        "To RSVP zapisze wspólną odpowiedź dla 2 osób przypisanych do tego zaproszenia.",
       ),
-      "Alex Hart",
-    );
+    ).toBeInTheDocument();
     await user.type(
       screen.getByPlaceholderText(
         "Np. menu klasyczne, wegetariańskie lub dziecięce",
@@ -139,6 +133,7 @@ describe("PublicSite", () => {
       ),
       "See you soon",
     );
+    expect(screen.getByText("Potwierdzasz: 2 osoby.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Wyślij RSVP" }));
 
     await waitFor(() => expect(apiClient).toHaveBeenCalled());
@@ -149,7 +144,7 @@ describe("PublicSite", () => {
         status: "ATTENDING",
         guestCount: 2,
         attendingChildren: 1,
-        plusOneName: "Alex Hart",
+        plusOneName: "",
         mealChoice: "Vegetarian tasting menu",
         dietaryNotes: "No peanuts",
         needsAccommodation: true,
@@ -162,5 +157,8 @@ describe("PublicSite", () => {
       screen.getByText("Dziękujemy, odpowiedź RSVP została zapisana."),
     ).toBeInTheDocument();
     expect(screen.getByText("Hart Family")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Oczekuje" }),
+    ).not.toBeInTheDocument();
   }, 10000);
 });

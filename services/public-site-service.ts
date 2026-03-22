@@ -11,6 +11,9 @@ import type {
   PublicWeddingView,
 } from "@/lib/planner-domain";
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const MINUTE_IN_MS = 60 * 1000;
+
 export const getPublicWeddingView = async (): Promise<PublicWeddingView> => {
   const repository = getRepository();
   const [wedding, timeline] = await Promise.all([
@@ -68,17 +71,29 @@ export const getPublicWeddingView = async (): Promise<PublicWeddingView> => {
       : null,
   ].filter((item): item is NonNullable<typeof item> => Boolean(item));
 
+  const visibleTimeline = timeline
+    .filter((event) => event.visibleToGuests)
+    .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+  const firstVisibleEvent = visibleTimeline[0];
+  const referenceStart = firstVisibleEvent?.startsAt ?? wedding.ceremonyDate;
+  const recommendedArrivalTime = new Date(
+    new Date(referenceStart).getTime() - 30 * MINUTE_IN_MS,
+  ).toISOString();
+  const rsvpDeadline = new Date(
+    new Date(wedding.ceremonyDate).getTime() - 30 * DAY_IN_MS,
+  ).toISOString();
+
   return {
     wedding,
-    timeline: timeline
-      .filter((event) => event.visibleToGuests)
-      .sort((left, right) => left.startsAt.localeCompare(right.startsAt)),
+    timeline: visibleTimeline,
     venue: `${wedding.venueName}, ${wedding.venueAddress}`,
     aboutText: wedding.aboutText,
     dressCode: wedding.dressCode,
     faqItems,
     ceremonyDate: wedding.ceremonyDate,
+    rsvpDeadline,
     coupleNames: `${wedding.coupleOneName} & ${wedding.coupleTwoName}`,
+    recommendedArrivalTime,
     logistics,
   };
 };
@@ -177,6 +192,13 @@ export const submitPublicRsvp = async (
     throw new Error("Guest not found");
   }
 
+  const rsvpDeadline = new Date(
+    new Date(wedding.ceremonyDate).getTime() - 30 * DAY_IN_MS,
+  );
+  if (Date.now() > rsvpDeadline.getTime()) {
+    throw new Error("RSVP deadline passed");
+  }
+
   if (guest.invitationGroupId) {
     const groups = await repository.listInvitationGroups();
     const invitationGroup = groups.find(
@@ -187,7 +209,7 @@ export const submitPublicRsvp = async (
     }
 
     await repository.updateInvitationGroup(invitationGroup.id, {
-      invitedGuestCount: data.guestCount,
+      invitedGuestCount: invitationGroup.invitedGuestCount,
       allowsPlusOne: invitationGroup.allowsPlusOne,
       notes: invitationGroup.notes,
       sharedRsvpStatus: data.status,

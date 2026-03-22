@@ -18,6 +18,10 @@ describe("public-site-service", () => {
     expect(view.timeline.every((event) => event.visibleToGuests)).toBe(true);
     expect(view.logistics.length).toBeGreaterThan(0);
     expect(view.logistics.some((item) => item.id === "parking")).toBe(true);
+    expect(new Date(view.rsvpDeadline).getTime()).toBeLessThan(
+      new Date(view.ceremonyDate).getTime(),
+    );
+    expect(view.recommendedArrivalTime).toBeDefined();
   });
 
   it("looks up and updates a guest RSVP by token", async () => {

@@ -88,9 +88,15 @@ export const AppShell = ({
   ].filter((item) => canAccessSection(userRole, item.section));
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.92),_rgba(254,242,242,0.9),_rgba(244,228,220,0.94))]">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
-        <header className="rounded-[2rem] border border-white/70 bg-white/70 px-5 py-4 shadow-[0_20px_70px_rgba(140,90,110,0.12)] backdrop-blur">
+    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#fff8f1_0%,#fff4f7_30%,#fff7e7_65%,#fffdfa_100%)]">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-[-5rem] top-[-2rem] h-56 w-56 rounded-full bg-[#e93cac]/16 blur-3xl" />
+        <div className="absolute right-[-3rem] top-20 h-72 w-72 rounded-full bg-[#ff7a21]/14 blur-3xl" />
+        <div className="absolute bottom-12 left-[10%] h-64 w-64 rounded-full bg-[#3148d8]/10 blur-3xl" />
+        <div className="absolute bottom-[-4rem] right-[12%] h-72 w-72 rounded-full bg-[#f7c929]/18 blur-3xl" />
+      </div>
+      <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+        <header className="overflow-hidden rounded-[2.3rem] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.84),rgba(255,244,229,0.82),rgba(255,238,246,0.8))] px-5 py-4 shadow-[0_24px_90px_rgba(140,90,110,0.12)] backdrop-blur">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-[var(--color-dusty-rose)]">
@@ -129,10 +135,10 @@ export const AppShell = ({
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
                 className={cn(
-                  "rounded-full px-4 py-2 text-sm transition-colors",
+                  "rounded-full border px-4 py-2 text-sm transition-colors",
                   pathname === item.href
-                    ? "bg-[var(--color-dusty-rose)] text-white"
-                    : "bg-white/50 text-[var(--color-ink)] hover:bg-[var(--color-card-tint)]",
+                    ? "border-transparent bg-[linear-gradient(135deg,#ff7a21,#e93cac)] text-white shadow-[0_12px_28px_rgba(233,60,172,0.24)]"
+                    : "border-white/65 bg-white/55 text-[var(--color-ink)] hover:bg-[var(--color-card-tint)]",
                 )}
               >
                 {item.label}

@@ -42,6 +42,7 @@ describe("dashboard-service", () => {
         "ALL",
         "TASK:BRIDE",
         "TASK:COUPLE",
+        "TASK:WITNESSES",
         "VENDOR:Kasia",
       ]),
     );

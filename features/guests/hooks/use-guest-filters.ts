@@ -2,6 +2,7 @@
 
 import { useDeferredValue } from "react";
 
+import { sortGuestsForList } from "@/features/guests/lib/guest-list-order";
 import type { GuestView } from "@/lib/planner-domain";
 
 export const useGuestFilters = (
@@ -13,16 +14,18 @@ export const useGuestFilters = (
   const deferredSearch = useDeferredValue(search);
   const query = deferredSearch.trim().toLowerCase();
 
-  return guests.filter((guest) => {
-    const matchesSearch =
-      query.length === 0 ||
-      guest.fullName.toLowerCase().includes(query) ||
-      guest.email.toLowerCase().includes(query);
+  return sortGuestsForList(
+    guests.filter((guest) => {
+      const matchesSearch =
+        query.length === 0 ||
+        guest.fullName.toLowerCase().includes(query) ||
+        guest.email.toLowerCase().includes(query);
 
-    const matchesSide = side === "ALL" || guest.side === side;
+      const matchesSide = side === "ALL" || guest.side === side;
 
-    const matchesGroup = group === "ALL" || (guest.groupName ?? "") === group;
+      const matchesGroup = group === "ALL" || (guest.groupName ?? "") === group;
 
-    return matchesSearch && matchesSide && matchesGroup;
-  });
+      return matchesSearch && matchesSide && matchesGroup;
+    }),
+  );
 };

@@ -555,7 +555,9 @@ export type PublicWeddingView = {
   dressCode?: string;
   faqItems: FaqItem[];
   ceremonyDate: string;
+  rsvpDeadline: string;
   coupleNames: string;
+  recommendedArrivalTime?: string;
   logistics: Array<{
     id: "parking" | "accommodation" | "registry" | "transport" | "coordinator";
     content: string;

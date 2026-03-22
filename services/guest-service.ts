@@ -4,6 +4,7 @@ import {
   guestInputSchema,
   type GuestInput,
 } from "@/features/guests/types/guest";
+import { sortGuestsForList } from "@/features/guests/lib/guest-list-order";
 import { createRsvpToken } from "@/lib/rsvp-token";
 
 const buildGuestView = async (): Promise<GuestView[]> => {
@@ -18,8 +19,8 @@ const buildGuestView = async (): Promise<GuestView[]> => {
     ],
   );
 
-  return guests
-    .map((guest) => {
+  return sortGuestsForList(
+    guests.map((guest) => {
       const contact = contacts.find(
         (candidate) => candidate.guestId === guest.id,
       );
@@ -42,8 +43,8 @@ const buildGuestView = async (): Promise<GuestView[]> => {
         groupNotes: invitationGroup?.notes,
         rsvpStatus: invitationGroup?.sharedRsvpStatus ?? guest.rsvpStatus,
       };
-    })
-    .sort((left, right) => left.lastName.localeCompare(right.lastName));
+    }),
+  );
 };
 
 const syncInvitationGroup = async (input: {

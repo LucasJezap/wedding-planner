@@ -221,20 +221,26 @@ export const getDashboardData = async (options?: {
   const overdueExpenses = budget.expenses.filter(
     (expense) => expense.isOverdue,
   ).length;
+  const taskResponsibilityAssignees = Array.from(
+    new Set([
+      ...visibleTasks.map((task) => task.assignee),
+      ...(options?.viewerRole === "ADMIN" || !options?.viewerRole
+        ? (["WITNESSES"] as TaskAssignee[])
+        : []),
+    ]),
+  );
   const responsibilityOptions: DashboardData["responsibilityOptions"] = [
     {
       id: "ALL",
       type: "ALL",
       label: "all",
     },
-    ...Array.from(new Set(visibleTasks.map((task) => task.assignee))).map(
-      (assignee) => ({
-        id: `TASK:${assignee}` as const,
-        type: "TASK_ASSIGNEE" as const,
-        value: assignee as TaskAssignee,
-        label: assignee.toLowerCase(),
-      }),
-    ),
+    ...taskResponsibilityAssignees.map((assignee) => ({
+      id: `TASK:${assignee}` as const,
+      type: "TASK_ASSIGNEE" as const,
+      value: assignee,
+      label: assignee.toLowerCase(),
+    })),
     ...Array.from(
       new Set(
         vendors

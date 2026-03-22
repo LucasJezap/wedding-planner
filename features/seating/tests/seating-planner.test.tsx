@@ -63,14 +63,34 @@ describe("SeatingPlanner", () => {
       />,
     );
 
-    expect(screen.getAllByText("Goście bez stołu")).toHaveLength(2);
+    expect(screen.getByText("Goście bez stołu")).toBeInTheDocument();
+    expect(screen.getByText("Układ i podgląd stołów")).toBeInTheDocument();
     expect(screen.getByText("Garden Table")).toBeInTheDocument();
     expect(screen.getByText("Conservatory Table")).toBeInTheDocument();
-    expect(screen.getByText("Emma Hart")).toBeInTheDocument();
-    expect(screen.getByText("Liam Hart")).toBeInTheDocument();
+    expect(screen.getByText("Emma H.")).toBeInTheDocument();
+    expect(screen.getByText("Liam H.")).toBeInTheDocument();
     expect(
       screen.getByRole("option", { name: "Stoły prostokątne" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Podgląd wszystkich stołów" }),
+    ).toBeInTheDocument();
+  });
+
+  it("switches to preview mode with seat acronyms", async () => {
+    render(
+      <SeatingPlanner
+        initialBoard={await getSeatingBoard()}
+        viewerRole="ADMIN"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Podgląd wszystkich stołów" }),
+    );
+
+    expect(screen.getByText("Podgląd wszystkich stołów")).toBeInTheDocument();
+    expect(screen.getAllByTitle("Emma Hart").length).toBeGreaterThan(0);
   });
 
   it("opens a seat editor overlay after chair click", async () => {

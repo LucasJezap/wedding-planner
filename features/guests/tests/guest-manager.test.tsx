@@ -72,4 +72,33 @@ describe("GuestManager", () => {
       screen.queryByRole("button", { name: "Edytuj" }),
     ).not.toBeInTheDocument();
   });
+
+  it("shows grouping actions for selected guests", async () => {
+    render(
+      <GuestManager
+        initialGuests={await listGuests()}
+        initialGroups={await listInvitationGroups()}
+        viewerRole="ADMIN"
+      />,
+    );
+
+    const user = userEvent.setup();
+    const emmaRow = screen.getByText("Emma Hart").closest("tr");
+    const liamRow = screen.getByText("Liam Hart").closest("tr");
+    const emmaCheckbox = emmaRow?.querySelector('input[type="checkbox"]');
+    const liamCheckbox = liamRow?.querySelector('input[type="checkbox"]');
+
+    expect(emmaCheckbox).toBeTruthy();
+    expect(liamCheckbox).toBeTruthy();
+
+    await user.click(emmaCheckbox!);
+    await user.click(liamCheckbox!);
+
+    expect(
+      screen.getByRole("button", { name: "Grupuj zaznaczonych" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Rozgrupuj" }),
+    ).toBeInTheDocument();
+  });
 });

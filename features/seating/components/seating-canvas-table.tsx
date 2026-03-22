@@ -42,46 +42,84 @@ type SeatingCanvasTableProps = {
   ) => void;
 };
 
-const getSeatNameBlockPosition = (
+const getCompactGuestName = (guestName?: string) => {
+  if (!guestName) {
+    return "";
+  }
+
+  const parts = guestName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) {
+    return guestName;
+  }
+
+  const [firstName, ...rest] = parts;
+  const lastName = rest[rest.length - 1];
+  return `${firstName} ${lastName?.[0] ?? ""}.`;
+};
+
+const getSeatNameBlockLayout = (
   chairPosition: { x: number; y: number },
   shape: TableShape,
 ) => {
   if (shape === "RECTANGULAR") {
     if (chairPosition.y < TABLE_CENTER.y) {
       return {
-        x: chairPosition.x - 76,
-        y: chairPosition.y - 72,
+        x: chairPosition.x - 72,
+        y: chairPosition.y + 44,
+        width: 144,
+        align: "center" as const,
       };
     }
     if (chairPosition.y > TABLE_CENTER.y) {
       return {
-        x: chairPosition.x - 76,
-        y: chairPosition.y + 32,
+        x: chairPosition.x - 72,
+        y: chairPosition.y - 58,
+        width: 144,
+        align: "center" as const,
       };
     }
     if (chairPosition.x < TABLE_CENTER.x) {
       return {
-        x: chairPosition.x - 150,
-        y: chairPosition.y - 18,
+        x: chairPosition.x + 46,
+        y: chairPosition.y - 10,
+        width: 116,
+        align: "left" as const,
       };
     }
     return {
-      x: chairPosition.x + 40,
-      y: chairPosition.y - 18,
+      x: chairPosition.x - 162,
+      y: chairPosition.y - 10,
+      width: 116,
+      align: "right" as const,
     };
   }
 
-  const horizontalOffset = chairPosition.x < TABLE_CENTER.x ? -166 : 14;
-  const verticalOffset =
-    chairPosition.y < TABLE_CENTER.y
-      ? -66
-      : chairPosition.y > TABLE_CENTER.y
-        ? 30
-        : -18;
+  if (chairPosition.x < TABLE_CENTER.x - 28) {
+    return {
+      x: chairPosition.x + 26,
+      y: chairPosition.y - 10,
+      width: 116,
+      align: "left" as const,
+    };
+  }
+
+  if (chairPosition.x > TABLE_CENTER.x + 28) {
+    return {
+      x: chairPosition.x - 142,
+      y: chairPosition.y - 10,
+      width: 116,
+      align: "right" as const,
+    };
+  }
 
   return {
-    x: chairPosition.x + horizontalOffset,
-    y: chairPosition.y + verticalOffset,
+    x: chairPosition.x - 72,
+    y:
+      chairPosition.y < TABLE_CENTER.y
+        ? chairPosition.y + 44
+        : chairPosition.y - 58,
+    width: 144,
+    align: "center" as const,
   };
 };
 
@@ -164,10 +202,10 @@ export const SeatingCanvasTable = ({
 
       {shape === "RECTANGULAR" ? (
         <Rect
-          x={90}
-          y={130}
-          width={SEATING_TABLE_BOX.width - 180}
-          height={SEATING_TABLE_BOX.height - 260}
+          x={116}
+          y={160}
+          width={SEATING_TABLE_BOX.width - 232}
+          height={SEATING_TABLE_BOX.height - 320}
           cornerRadius={28}
           fill="#fef6f3"
           stroke="#c98b92"
@@ -196,7 +234,7 @@ export const SeatingCanvasTable = ({
         verticalAlign="middle"
         text={getTableDisplayName(table.name)}
         fill="#4f3340"
-        fontSize={22}
+        fontSize={28}
         fontStyle="700"
       />
 
@@ -204,7 +242,7 @@ export const SeatingCanvasTable = ({
         const seat = table.seats[seatIndex];
         const chair = getChairPosition(seatIndex, shape);
         const isFilled = Boolean(seat?.guestId);
-        const namePosition = getSeatNameBlockPosition(chair, shape);
+        const nameLayout = getSeatNameBlockLayout(chair, shape);
 
         return (
           <Group
@@ -233,26 +271,26 @@ export const SeatingCanvasTable = ({
               onTap={handleSeatClick(seatIndex)}
             />
             <Text
-              x={chair.x - 18}
-              y={chair.y - 8}
-              width={36}
+              x={chair.x - 24}
+              y={chair.y - 10}
+              width={48}
               align="center"
               text={seat?.label ?? String(seatIndex + 1)}
               fill={isFilled ? "#ffffff" : "#7a5b65"}
-              fontSize={11}
+              fontSize={14}
               fontStyle="700"
               listening={false}
             />
             <Text
-              x={namePosition.x}
-              y={namePosition.y}
-              width={152}
-              align="center"
-              wrap="word"
-              text={seat?.guestName ?? ""}
+              x={nameLayout.x}
+              y={nameLayout.y}
+              width={nameLayout.width}
+              align={nameLayout.align}
+              wrap="none"
+              ellipsis
+              text={getCompactGuestName(seat?.guestName)}
               fill="#5f4450"
               fontSize={13}
-              lineHeight={1.15}
               listening={false}
             />
           </Group>

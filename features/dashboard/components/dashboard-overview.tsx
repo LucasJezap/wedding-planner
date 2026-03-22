@@ -70,6 +70,8 @@ import { canViewDashboardTasks } from "@/lib/access-control";
 import { formatCurrency, formatDate, formatTime } from "@/lib/format";
 import type { DashboardData } from "@/lib/planner-domain";
 
+const DASHBOARD_LIST_LIMIT = 5;
+
 export const DashboardOverview = ({ data }: { data: DashboardData }) => {
   const { locale, messages } = useLocale();
   const coupleNames = `${data.wedding.coupleOneName} & ${data.wedding.coupleTwoName}`;
@@ -159,6 +161,65 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
   const responsibilityLabel = selectedResponsibility
     ? formatResponsibilityOptionLabel(selectedResponsibility)
     : messages.dashboard.allResponsibilities;
+  const visibleUpcomingTasks = filteredUpcomingTasks.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleAttentionTasks = filteredAttentionTasks.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleOverdueTasks = filteredOverdueTasks.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleVendorFollowUps = filteredVendorFollowUps.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleVendorsMissingContact = filteredVendorsMissingContact.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleTodayTasks = filteredTodayTasks.slice(0, DASHBOARD_LIST_LIMIT);
+  const visibleTodayEvents = data.todayFocus.events.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleTodayPayments = data.todayFocus.payments.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleTodayVendorFollowUps = filteredTodayVendorFollowUps.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleNextEvents = data.nextEvents.slice(0, DASHBOARD_LIST_LIMIT);
+  const visibleExpenseHighlights = data.expenseHighlights.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visiblePendingRsvps = data.pendingRsvps.slice(0, DASHBOARD_LIST_LIMIT);
+  const visibleUnseatedGuests = data.unseatedGuests.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visiblePaymentAlerts = data.paymentAlerts.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleUpcomingPayments = data.upcomingPayments.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleDecisionQueue = filteredDecisionQueue.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
+  const visibleActivityFeed = filteredActivityFeed.slice(
+    0,
+    DASHBOARD_LIST_LIMIT,
+  );
 
   return (
     <div className="space-y-6">
@@ -287,7 +348,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
                 {messages.dashboard.todayTasks}
               </p>
-              {filteredTodayTasks.map((task) => (
+              {visibleTodayTasks.map((task) => (
                 <Link
                   key={task.id}
                   href={task.href}
@@ -301,7 +362,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   </p>
                 </Link>
               ))}
-              {filteredTodayTasks.length === 0 ? (
+              {visibleTodayTasks.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {messages.dashboard.noTodayTasks}
                 </p>
@@ -311,7 +372,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
                 {messages.dashboard.todayEvents}
               </p>
-              {data.todayFocus.events.map((event) => (
+              {visibleTodayEvents.map((event) => (
                 <Link
                   key={event.id}
                   href={event.href}
@@ -325,7 +386,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   </p>
                 </Link>
               ))}
-              {data.todayFocus.events.length === 0 ? (
+              {visibleTodayEvents.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {messages.dashboard.noTodayEvents}
                 </p>
@@ -335,7 +396,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
                 {messages.dashboard.todayPayments}
               </p>
-              {data.todayFocus.payments.map((payment) => (
+              {visibleTodayPayments.map((payment) => (
                 <Link
                   key={payment.id}
                   href={payment.href}
@@ -349,7 +410,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   </p>
                 </Link>
               ))}
-              {data.todayFocus.payments.length === 0 ? (
+              {visibleTodayPayments.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {messages.dashboard.noTodayPayments}
                 </p>
@@ -359,7 +420,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               <p className="text-sm uppercase tracking-[0.25em] text-[var(--color-dusty-rose)]">
                 {messages.dashboard.todayVendorFollowUps}
               </p>
-              {filteredTodayVendorFollowUps.map((vendor) => (
+              {visibleTodayVendorFollowUps.map((vendor) => (
                 <Link
                   key={vendor.id}
                   href={vendor.href}
@@ -373,7 +434,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   </p>
                 </Link>
               ))}
-              {filteredTodayVendorFollowUps.length === 0 ? (
+              {visibleTodayVendorFollowUps.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {messages.dashboard.noTodayVendorFollowUps}
                 </p>
@@ -442,7 +503,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {data.nextEvents.map((event) => (
+            {visibleNextEvents.map((event) => (
               <div
                 key={event.id}
                 className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -482,7 +543,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {filteredUpcomingTasks.map((task) => (
+              {visibleUpcomingTasks.map((task) => (
                 <div
                   key={task.id}
                   className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -526,7 +587,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {data.expenseHighlights.map((expense) => (
+              {visibleExpenseHighlights.map((expense) => (
                 <div
                   key={expense.id}
                   className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -587,7 +648,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                 )}
               </p>
             </div>
-            {data.pendingRsvps.map((guest) => (
+            {visiblePendingRsvps.map((guest) => (
               <div
                 key={guest.id}
                 className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -615,7 +676,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                 </div>
               </div>
             ))}
-            {data.pendingRsvps.length === 0 ? (
+            {visiblePendingRsvps.length === 0 ? (
               <p className="text-sm text-[var(--color-muted-copy)]">
                 {messages.dashboard.allRsvpsIn}
               </p>
@@ -629,7 +690,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {data.unseatedGuests.map((guest) => (
+            {visibleUnseatedGuests.map((guest) => (
               <div
                 key={guest.id}
                 className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -657,7 +718,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                 </div>
               </div>
             ))}
-            {data.unseatedGuests.length === 0 ? (
+            {visibleUnseatedGuests.length === 0 ? (
               <p className="text-sm text-[var(--color-muted-copy)]">
                 {messages.dashboard.everyoneSeated}
               </p>
@@ -678,7 +739,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {filteredOverdueTasks.map((task) => (
+              {visibleOverdueTasks.map((task) => (
                 <div
                   key={task.id}
                   className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -710,7 +771,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   </div>
                 </div>
               ))}
-              {filteredOverdueTasks.length === 0 ? (
+              {visibleOverdueTasks.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {messages.dashboard.noOverdueTasks}
                 </p>
@@ -726,7 +787,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {filteredAttentionTasks.map((task) => (
+              {visibleAttentionTasks.map((task) => (
                 <div
                   key={task.id}
                   className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -762,7 +823,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   </div>
                 </div>
               ))}
-              {filteredAttentionTasks.length === 0 ? (
+              {visibleAttentionTasks.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {messages.dashboard.noTaskAlerts}
                 </p>
@@ -777,7 +838,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {filteredVendorFollowUps.map((vendor) => (
+            {visibleVendorFollowUps.map((vendor) => (
               <div
                 key={vendor.id}
                 className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -813,7 +874,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                 </div>
               </div>
             ))}
-            {filteredVendorFollowUps.length === 0 ? (
+            {visibleVendorFollowUps.length === 0 ? (
               <p className="text-sm text-[var(--color-muted-copy)]">
                 {messages.dashboard.noVendorFollowUps}
               </p>
@@ -827,7 +888,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {filteredVendorsMissingContact.map((vendor) => (
+            {visibleVendorsMissingContact.map((vendor) => (
               <div
                 key={vendor.id}
                 className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -861,7 +922,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                 </div>
               </div>
             ))}
-            {filteredVendorsMissingContact.length === 0 ? (
+            {visibleVendorsMissingContact.length === 0 ? (
               <p className="text-sm text-[var(--color-muted-copy)]">
                 {messages.dashboard.noVendorsMissingContact}
               </p>
@@ -876,7 +937,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {data.paymentAlerts.map((expense) => (
+              {visiblePaymentAlerts.map((expense) => (
                 <div
                   key={expense.id}
                   className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -922,7 +983,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                   </div>
                 </div>
               ))}
-              {data.paymentAlerts.length === 0 ? (
+              {visiblePaymentAlerts.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted-copy)]">
                   {messages.dashboard.noPaymentAlerts}
                 </p>
@@ -939,7 +1000,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 lg:grid-cols-2">
-            {data.upcomingPayments.map((expense) => (
+            {visibleUpcomingPayments.map((expense) => (
               <div
                 key={expense.id}
                 className="rounded-[1.5rem] bg-[var(--color-card-tint)]/70 p-4"
@@ -977,7 +1038,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
                 </div>
               </div>
             ))}
-            {data.upcomingPayments.length === 0 ? (
+            {visibleUpcomingPayments.length === 0 ? (
               <p className="text-sm text-[var(--color-muted-copy)]">
                 {messages.dashboard.noUpcomingPayments}
               </p>
@@ -992,7 +1053,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {filteredDecisionQueue.map((item) => (
+          {visibleDecisionQueue.map((item) => (
             <Link
               key={item.id}
               href={item.href}
@@ -1006,7 +1067,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               </p>
             </Link>
           ))}
-          {filteredDecisionQueue.length === 0 ? (
+          {visibleDecisionQueue.length === 0 ? (
             <p className="text-sm text-[var(--color-muted-copy)]">
               {messages.dashboard.noDecisionQueue}
             </p>
@@ -1020,7 +1081,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {filteredActivityFeed.map((item) => (
+          {visibleActivityFeed.map((item) => (
             <Link
               key={item.id}
               href={item.href}
@@ -1043,7 +1104,7 @@ export const DashboardOverview = ({ data }: { data: DashboardData }) => {
               </p>
             </Link>
           ))}
-          {filteredActivityFeed.length === 0 ? (
+          {visibleActivityFeed.length === 0 ? (
             <p className="text-sm text-[var(--color-muted-copy)]">
               {messages.dashboard.noActivityForResponsibility}
             </p>

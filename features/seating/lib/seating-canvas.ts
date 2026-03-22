@@ -3,8 +3,8 @@ import type { SeatingTableView } from "@/lib/planner-domain";
 import { SEATS_PER_TABLE } from "@/features/seating/lib/seating-seat";
 
 export const SEATING_TABLE_BOX = {
-  width: 520,
-  height: 420,
+  width: 660,
+  height: 540,
 } as const;
 
 export const TABLE_CENTER = {
@@ -12,9 +12,9 @@ export const TABLE_CENTER = {
   y: SEATING_TABLE_BOX.height / 2,
 } as const;
 
-export const TABLE_RADIUS = 88;
-export const CHAIR_RADIUS = 28;
-export const CHAIR_RING_RADIUS = 154;
+export const TABLE_RADIUS = 112;
+export const CHAIR_RADIUS = 34;
+export const CHAIR_RING_RADIUS = 210;
 export const SEATING_STAGE_PADDING = 64;
 export const SLOT_COLUMNS = 3;
 export const SLOT_ROWS = 4;
@@ -42,16 +42,16 @@ const getRoundChairPosition = (index: number): CanvasPoint => {
 };
 
 const RECTANGULAR_CHAIR_POSITIONS: CanvasPoint[] = [
-  { x: 110, y: 88 },
-  { x: 205, y: 88 },
-  { x: 315, y: 88 },
-  { x: 410, y: 88 },
-  { x: 470, y: TABLE_CENTER.y },
-  { x: 410, y: 332 },
-  { x: 315, y: 332 },
-  { x: 205, y: 332 },
-  { x: 110, y: 332 },
-  { x: 50, y: TABLE_CENTER.y },
+  { x: 136, y: 110 },
+  { x: 246, y: 110 },
+  { x: 330, y: 110 },
+  { x: 440, y: 110 },
+  { x: 548, y: TABLE_CENTER.y },
+  { x: 440, y: 430 },
+  { x: 330, y: 430 },
+  { x: 246, y: 430 },
+  { x: 136, y: 430 },
+  { x: 64, y: TABLE_CENTER.y },
 ];
 
 export const getChairPosition = (

@@ -744,23 +744,35 @@ export const prismaPlannerRepository: PlannerRepository = {
     return toGuestRecord(created);
   },
   async updateGuest(guestId, guest, contact, note) {
+    const guestData = {
+      firstName: guest.firstName,
+      lastName: guest.lastName,
+      side: guest.side,
+      rsvpStatus: guest.rsvpStatus,
+      rsvpToken: guest.rsvpToken,
+      dietaryRestrictions: guest.dietaryRestrictions,
+      paymentCoverage: guest.paymentCoverage,
+      invitationReceived: guest.invitationReceived,
+      transportToVenue: guest.transportToVenue,
+      transportFromVenue: guest.transportFromVenue,
+      tableId:
+        "tableId" in guest
+          ? guest.tableId === undefined
+            ? null
+            : guest.tableId
+          : undefined,
+      invitationGroupId:
+        "invitationGroupId" in guest
+          ? guest.invitationGroupId === undefined
+            ? null
+            : guest.invitationGroupId
+          : undefined,
+      groupName: guest.groupName,
+    };
+
     const updated = await db.guest.update({
       where: { id: guestId },
-      data: {
-        firstName: guest.firstName,
-        lastName: guest.lastName,
-        side: guest.side,
-        rsvpStatus: guest.rsvpStatus,
-        rsvpToken: guest.rsvpToken,
-        dietaryRestrictions: guest.dietaryRestrictions,
-        paymentCoverage: guest.paymentCoverage,
-        invitationReceived: guest.invitationReceived,
-        transportToVenue: guest.transportToVenue,
-        transportFromVenue: guest.transportFromVenue,
-        invitationGroupId: guest.invitationGroupId,
-        tableId: guest.tableId,
-        groupName: guest.groupName,
-      },
+      data: guestData,
     });
 
     await db.contact.upsert({

@@ -13,6 +13,42 @@ describe("guest-service", () => {
     await expect(listGuests()).resolves.toHaveLength(6);
   });
 
+  it("sorts guests by side and keeps group members together", async () => {
+    const guests = await listGuests();
+    const sideSequence = guests.map((guest) => guest.side);
+    const firstGroomIndex = sideSequence.indexOf("GROOM");
+    const firstFamilyIndex = sideSequence.indexOf("FAMILY");
+    const firstFriendsIndex = sideSequence.indexOf("FRIENDS");
+
+    expect(firstGroomIndex).toBeGreaterThanOrEqual(0);
+    expect(firstFamilyIndex).toBeGreaterThan(firstGroomIndex);
+    expect(firstFriendsIndex).toBeGreaterThan(firstFamilyIndex);
+    expect(sideSequence.slice(0, firstGroomIndex)).toSatisfy(
+      (sides: string[]) => sides.every((side) => side === "BRIDE"),
+    );
+    expect(sideSequence.slice(firstGroomIndex, firstFamilyIndex)).toSatisfy(
+      (sides: string[]) => sides.every((side) => side === "GROOM"),
+    );
+    expect(sideSequence.slice(firstFamilyIndex, firstFriendsIndex)).toSatisfy(
+      (sides: string[]) => sides.every((side) => side === "FAMILY"),
+    );
+    expect(sideSequence.slice(firstFriendsIndex)).toSatisfy((sides: string[]) =>
+      sides.every((side) => side === "FRIENDS"),
+    );
+
+    const groupedGuests = guests.filter(
+      (guest) => guest.groupName === "Cyfkowie",
+    );
+    if (groupedGuests.length > 1) {
+      const positions = groupedGuests.map((guest) =>
+        guests.findIndex((candidate) => candidate.id === guest.id),
+      );
+      expect(Math.max(...positions) - Math.min(...positions)).toBe(
+        groupedGuests.length - 1,
+      );
+    }
+  });
+
   it("builds invitation group summaries from seeded data", async () => {
     const groups = await listInvitationGroups();
     const hartFamily = groups.find((group) => group.name === "Hart Family");
@@ -194,6 +230,34 @@ describe("guest-service", () => {
       invitedGuestCount: 2,
       notes: "Moved in bulk",
     });
+  });
+
+  it("bulk ungrouping removes the shared group when it becomes empty", async () => {
+    const initialGuests = await listGuests();
+    const henry = initialGuests.find(
+      (guest) => guest.fullName === "Henry Cole",
+    );
+    const sofia = initialGuests.find(
+      (guest) => guest.fullName === "Sofia Cole",
+    );
+
+    expect(henry).toBeTruthy();
+    expect(sofia).toBeTruthy();
+
+    const updatedGuests = await bulkUpdateGuests([henry!.id, sofia!.id], {
+      groupName: "",
+    });
+
+    expect(
+      updatedGuests.filter(
+        (guest) => guest.id === henry!.id || guest.id === sofia!.id,
+      ),
+    ).toSatisfy((guests: Array<(typeof updatedGuests)[number]>) =>
+      guests.every((guest) => !guest.groupName),
+    );
+
+    const groups = await listInvitationGroups();
+    expect(groups.find((group) => group.name === "Cole Family")).toBeFalsy();
   });
 
   it("bulk deletes guests and removes affected empty invitation groups", async () => {

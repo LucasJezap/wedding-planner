@@ -11,7 +11,7 @@ export const publicGuestLookupSchema = z.object({
 
 export const publicRsvpSchema = z.object({
   token: z.string().trim().min(6),
-  status: z.enum(["PENDING", "ATTENDING", "DECLINED"]),
+  status: z.enum(["ATTENDING", "DECLINED"]),
   guestCount: z.number().int().min(1).max(6).default(1),
   attendingChildren: z.number().int().min(0).max(4).default(0),
   plusOneName: z.string().trim().max(120).default(""),
